@@ -1,0 +1,105 @@
+--- Distributed training example of supervised SAGE ---
+* dataset: ogbn-products
+* dataset root dir: /hongming/00_kaixuan/06_16/pytorch_geometric/examples/distributed/data/products
+* number of dataset partitions: 2
+* total nodes: 1
+* node rank: 0
+* number of training processes per node: 2
+* epochs: 100
+* batch size: 1024
+* master addr: 127.0.0.1
+* training process group master port: 11111
+* training loader master port: 11112
+* testing loader master port: 11113
+--- Loading data partition ...
+--- Launching training processes ...
+--- Distributed training example of supervised SAGE ---
+* dataset: ogbn-products
+* dataset root dir: /hongming/00_kaixuan/06_16/pytorch_geometric/examples/distributed/data/products
+* number of dataset partitions: 2
+* total nodes: 1
+* node rank: 0
+* number of training processes per node: 2
+* epochs: 100
+* batch size: 1024
+* master addr: 127.0.0.1
+* training process group master port: 11111
+* training loader master port: 11112
+* testing loader master port: 11113
+--- Loading data partition ...
+--- Launching training processes ...
+--- Distributed training example of supervised SAGE ---
+* dataset: ogbn-products
+* dataset root dir: /hongming/00_kaixuan/06_16/pytorch_geometric/examples/distributed/data/products
+* number of dataset partitions: 2
+* total nodes: 1
+* node rank: 0
+* number of training processes per node: 2
+* epochs: 100
+* batch size: 1024
+* master addr: 127.0.0.1
+* training process group master port: 11111
+* training loader master port: 11112
+* testing loader master port: 11113
+--- Loading data partition ...
+--- Launching training processes ...
+--- Distributed training example of supervised SAGE ---
+* dataset: ogbn-products
+* dataset root dir: /hongming/00_kaixuan/06_16/pytorch_geometric/examples/distributed/data/products
+* number of dataset partitions: 2
+* total nodes: 1
+* node rank: 0
+* number of training processes per node: 2
+* epochs: 100
+* batch size: 1024
+* master addr: 127.0.0.1
+* training process group master port: 11111
+* training loader master port: 11112
+* testing loader master port: 11113
+--- Loading data partition ...
+--- Launching training processes ...
+--- Distributed training example of supervised SAGE ---
+* dataset: ogbn-products
+* dataset root dir: /hongming/00_kaixuan/06_16/pytorch_geometric/examples/distributed/data/products
+* number of dataset partitions: 2
+* total nodes: 1
+* node rank: 0
+* number of training processes per node: 2
+* epochs: 100
+* batch size: 1024
+* master addr: 127.0.0.1
+* training process group master port: 11111
+* training loader master port: 11112
+* testing loader master port: 11113
+--- Loading data partition ...
+--- Launching training processes ...
+--- Distributed training example of supervised SAGE ---
+* dataset: ogbn-products
+* dataset root dir: /hongming/00_kaixuan/06_16/pytorch_geometric/examples/distributed/data/products
+* number of dataset partitions: 2
+* total nodes: 1
+* node rank: 0
+* number of training processes per node: 2
+* epochs: 100
+* batch size: 1024
+* master addr: 127.0.0.1
+* training process group master port: 11111
+* training loader master port: 11112
+* testing loader master port: 11113
+--- Loading data partition ...
+--- Launching training processes ...
+--- Distributed training example of supervised SAGE ---
+* dataset: ogbn-products
+* dataset root dir: /hongming/00_kaixuan/06_16/pytorch_geometric/examples/distributed/data/products
+* number of dataset partitions: 2
+* total nodes: 1
+* node rank: 0
+* number of training processes per node: 2
+* epochs: 100
+* batch size: 1024
+* master addr: 127.0.0.1
+* training process group master port: 11111
+* training loader master port: 11112
+* testing loader master port: 11113
+--- Loading data partition ...
+--- Launching training processes ...

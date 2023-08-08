@@ -92,6 +92,19 @@ class NodeSamplerInput(CastMixin):
             self.time[index] if self.time is not None else None,
             self.input_type,
         )
+        
+    ## below 3 from GLT
+    def __len__(self):
+        return self.node.numel()
+
+    def share_memory(self):
+        self.node.share_memory_()
+        return self
+
+    def to(self, device: torch.device):
+        self.node.to(device)
+        return self
+
 
 
 @dataclass(init=False)
@@ -157,6 +170,24 @@ class EdgeSamplerInput(CastMixin):
             self.time[index] if self.time is not None else None,
             self.input_type,
         )
+
+    ## below 3 from GLT
+    def __len__(self):
+        return self.row.numel()
+
+    def share_memory(self):
+        self.row.share_memory_()
+        self.col.share_memory_()
+        if self.label is not None:
+            self.label.share_memory_()
+        return self
+
+    def to(self, device: torch.device):
+        self.row.to(device)
+        self.col.to(device)
+        if self.label is not None:
+            self.label.to(device)
+        return self
 
 
 @dataclass
@@ -604,3 +635,45 @@ class BaseSampler(ABC):
         applied, :obj:`None` is returned. For heterogeneous graphs, the
         expected return type is a permutation tensor for each edge type."""
         return None
+
+class NeighborOutput(CastMixin):
+  r""" The output of sampled neighbor results for a single hop sampling.
+
+  Args:
+    nbr (torch.Tensor): A 1D tensor of all sampled neighborhood node ids.
+    nbr_num (torch.Tensor): A 1D tensor that identify the number of
+      neighborhood nodes for each source nodes. Must be the same length as
+      the source nodes of this sampling hop.
+    nbr_num (torch.Tensor, optional): The edge ids corresponding to the sampled
+      edges (from source node to the sampled neighborhood node). Should be the
+      same length as :obj:`nbr` if provided.
+  """
+  nbr: torch.Tensor
+  nbr_num: torch.Tensor
+  edge: Optional[torch.Tensor]
+
+  def to(self, device: torch.device):
+    return NeighborOutput(
+      nbr=self.nbr.to(device),
+      nbr_num=self.nbr_num.to(device),
+      edge=(self.edge.to(device) if self.edge is not None else None)
+    )
+
+class SamplingType(Enum):
+  r""" Enum class for sampling types.
+  """
+  NODE = 0
+  LINK = 1
+  SUBGRAPH = 2
+  RANDOM_WALK = 3
+
+class SamplingConfig:
+  r""" Configuration info for sampling.
+  """
+  sampling_type: SamplingType
+  num_neighbors: Optional[NumNeighbors]
+  batch_size: int
+  shuffle: bool
+  drop_last: bool
+  with_edge: bool
+  collect_features: bool

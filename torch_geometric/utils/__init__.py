@@ -52,6 +52,8 @@ from .tree_decomposition import tree_decomposition
 from .embedding import get_embeddings
 from .trim_to_layer import trim_to_layer
 from .train_test_split_edges import train_test_split_edges
+from .device import *
+from .common import *
 
 __all__ = [
     'scatter',
