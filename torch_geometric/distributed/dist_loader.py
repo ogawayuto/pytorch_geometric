@@ -1,3 +1,17 @@
+# Copyright 2022 Alibaba Group Holding Limited. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 import atexit
 import torch
 import torch.multiprocessing as mp
@@ -8,14 +22,12 @@ from torch_geometric.data import Data, HeteroData
 from torch_geometric.sampler import HeteroSamplerOutput, SamplerOutput
 
 from .rpc import init_rpc, global_barrier
-#from .dist_mixin import RPCMixin
+from .dist_mixin import RPCMixin
 from .dist_neighbor_sampler import DistNeighborSampler, close_sampler
 from .dist_context import DistContext, DistRole
-#from ..channel import ChannelBase
+from ..channel import ChannelBase
 from torch_geometric.typing import EdgeType, InputNodes, OptTensor, as_str
 
-from .local_graph_store import LocalGraphStore
-from .local_feature_store import LocalFeatureStore
 
 class DistLoader():  # , RPCMixin):
     r"""
@@ -66,10 +78,9 @@ class DistLoader():  # , RPCMixin):
                  neighbor_sampler: DistNeighborSampler,
                  current_ctx: DistContext,
                  rpc_worker_names: Dict[DistRole, List[str]],
-                 #data: Tuple[LocalGraphStore, LocalFeatureStore],                 
                  master_addr: str,
                  master_port: Union[int, str],
-                 channel: mp.Queue(),
+                 channel: Optional[Union[ChannelBase, mp.Queue()]],
                  num_rpc_threads: Optional[int] = 16,
                  rpc_timeout: Optional[int] = 180,
                  device: Optional[torch.device] = torch.device('cpu'),
@@ -77,10 +88,9 @@ class DistLoader():  # , RPCMixin):
                  ):
 
         self.neighbor_sampler = neighbor_sampler
-        self.channel =  channel
+        self.channel = channel
         self.current_ctx = current_ctx
         self.rpc_worker_names = rpc_worker_names
-        #self.data = data
         if master_addr is not None:
             self.master_addr = str(master_addr)
         elif os.environ.get('MASTER_ADDR') is not None:

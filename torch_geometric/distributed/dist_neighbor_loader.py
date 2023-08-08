@@ -5,19 +5,18 @@ from torch_geometric.data import Data, HeteroData
 from torch_geometric.sampler import HeteroSamplerOutput, SamplerOutput
 from torch_geometric.typing import EdgeType, InputNodes, OptTensor, as_str
 from torch_geometric.loader.node_loader import NodeLoader
-from torch_geometric.sampler.base import SubgraphType
 
-from .dist_context import DistRole, DistContext
 from .dist_loader import DistLoader
 from .dist_neighbor_sampler import DistNeighborSampler
 from .local_graph_store import LocalGraphStore
 from .local_feature_store import LocalFeatureStore
+from .dist_context import DistContext, DistRole
 
+from torch_geometric.sampler.base import SubgraphType
 
 
 class DistNeighborLoader(NodeLoader, DistLoader):
     r""" A distributed loader that preform sampling from nodes.
-
     Args:
       data (DistDataset, optional): The ``DistDataset`` object of a partition of
         graph data and feature data, along with distributed patition books. The
@@ -56,34 +55,35 @@ class DistNeighborLoader(NodeLoader, DistLoader):
         object, the sampling workers will be launched on remote sampling server
         nodes, and a remote channel will be created for cross-machine message
         passing. (default: ``None``).
-    """
+      """
+
     def __init__(self,
-        current_ctx: DistContext,
-        rpc_worker_names: Dict[DistRole, List[str]],
-        data: Tuple[LocalGraphStore, LocalFeatureStore],
-        num_neighbors: Union[List[int], Dict[EdgeType, List[int]]],
-        master_addr: str,
-        master_port: Union[int, str],
-        neighbor_sampler: Optional[DistNeighborSampler] = None,
-        input_nodes: InputNodes = None,
-        input_time: OptTensor = None,
-        replace: bool = False,
-        subgraph_type: Union[SubgraphType, str] = 'directional',
-        disjoint: bool = False,
-        temporal_strategy: str = 'uniform',
-        time_attr: Optional[str] = None,
-        transform: Optional[Callable] = None,
-        transform_sampler_output: Optional[Callable] = None,
-        is_sorted: bool = False,
-        directed: bool = True,  # Deprecated.
-        with_edge: bool = False,
-        concurrency: int = 0,
-        collect_features: bool = True,
-        filter_per_worker: Optional[bool] = None,
-        async_sampling: bool = True,
-        device: torch.device = torch.device('cpu'),
-        **kwargs,
-        ):
+                 data: Tuple[Dict, int, int, LocalGraphStore, LocalFeatureStore, torch.Tensor, torch.Tensor],
+                 num_neighbors: Union[List[int], Dict[EdgeType, List[int]]],
+                 master_addr: str,
+                 master_port: Union[int, str],
+                 current_ctx: DistContext,
+                 rpc_worker_names: Dict[DistRole, List[str]],
+                 neighbor_sampler: Optional[DistNeighborSampler] = None,
+                 input_nodes: InputNodes = None,
+                 input_time: OptTensor = None,
+                 replace: bool = False,
+                 subgraph_type: Union[SubgraphType, str] = 'directional',
+                 disjoint: bool = False,
+                 temporal_strategy: str = 'uniform',
+                 time_attr: Optional[str] = None,
+                 transform: Optional[Callable] = None,
+                 transform_sampler_output: Optional[Callable] = None,
+                 is_sorted: bool = False,
+                 directed: bool = True,  # Deprecated.
+                 with_edge: bool = False,
+                 concurrency: int = 0,
+                 collect_features: bool = True,
+                 filter_per_worker: Optional[bool] = None,
+                 async_sampling: bool = True,
+                 device: torch.device = torch.device('cpu'),
+                 **kwargs,
+                 ):
 
         if input_time is not None and time_attr is None:
             raise ValueError("Received conflicting 'input_time' and "
@@ -94,12 +94,9 @@ class DistNeighborLoader(NodeLoader, DistLoader):
 
         if neighbor_sampler is None:
             neighbor_sampler = DistNeighborSampler(
-                data=data,
+                data=data,  # data.graph?
                 current_ctx=current_ctx,
-                rpc_worker_names=rpc_worker_names,
                 num_neighbors=num_neighbors,
-                device=device,
-                channel=channel,
                 with_edge=with_edge,
                 replace=replace,
                 subgraph_type=subgraph_type,
@@ -109,34 +106,36 @@ class DistNeighborLoader(NodeLoader, DistLoader):
                 is_sorted=is_sorted,
                 share_memory=kwargs.get('num_workers', 0) > 0,
                 directed=directed,
-                concurrency=kwargs.pop('worker_concurrency', 4),
-                collect_features=kwargs.pop('collect_features', True),
+                device=device,
+                channel=channel,
+                concurrency=concurrency,
+                collect_features=collect_features
             )
 
         DistLoader.__init__(self,
-          current_ctx = current_ctx,
-          rpc_worker_names = rpc_worker_names,
-          #data = data,
-          neighbor_sampler = neighbor_sampler, 
-          channel = channel, 
-          master_addr = master_addr, 
-          master_port = master_port, 
-          **kwargs
-        )
-        
+                            neighbor_sampler=neighbor_sampler,
+                            channel=channel,
+                            master_addr=master_addr,
+                            master_port=master_port,
+                            current_ctx=current_ctx,
+                            rpc_worker_names=rpc_worker_names,
+                            **kwargs
+                            )
+
         NodeLoader.__init__(self,
-            data=data,
-            node_sampler=neighbor_sampler,
-            input_nodes=input_nodes,
-            input_time=input_time,
-            transform=transform,
-            transform_sampler_output=transform_sampler_output,
-            filter_per_worker=filter_per_worker,
-            custom_init=self.init_fn,
-            custom_filter=self.filter_fn,
-            **kwargs
-        )
+                            # Tuple[FeatureStore, GraphStore]
+                            data=data,
+                            node_sampler=neighbor_sampler,
+                            input_nodes=input_nodes,
+                            input_time=input_time,
+                            transform=transform,
+                            transform_sampler_output=transform_sampler_output,
+                            filter_per_worker=filter_per_worker,
+                            custom_init=self.init_fn,
+                            custom_filter=self.filter_fn,
+                            **kwargs
+                            )
         
-    def __repr__(self) -> str:
-      return DistLoader.__repr__(self)
-  
+    #TODO: move filter_fn here    
+    # def filter_fn():
+    #   pass
