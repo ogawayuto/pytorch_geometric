@@ -128,7 +128,7 @@ class DistLoader():  # , RPCMixin):
 
     def init_fn(self, worker_id):
         try:
-            print(f"EXECUTING init_fn() in _worker_loop() of {repr(self.neighbor_sampler)} worker_id-{worker_id}: ")
+            print(f">>> EXECUTING init_fn() in _worker_loop() of {repr(self.neighbor_sampler)} worker_id-{worker_id}: ")
             self.current_ctx_worker = DistContext(
                 world_size=self.current_ctx.  world_size * self.num_workers,
                 rank=self.current_ctx.rank * self.num_workers + worker_id,
@@ -155,6 +155,7 @@ class DistLoader():  # , RPCMixin):
             atexit.register(close_sampler, worker_id, self.neighbor_sampler)
             # wait for all workers to init
             global_barrier()
+            print(f">>> FINISHED EXECUTING init_fn()")
 
         except RuntimeError:
             raise RuntimeError(
