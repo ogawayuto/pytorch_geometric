@@ -129,13 +129,13 @@ class DistLoader():  # , RPCMixin):
     def init_fn(self, worker_id):
         try:
             print(f">>> EXECUTING init_fn() in _worker_loop() of {repr(self.neighbor_sampler)} worker_id-{worker_id}: ")
-            sampler_world_size=self.current_ctx.world_size * self.num_workers
+            sampler_world_size=((self.current_ctx.world_size * self.num_workers) if (self.current_ctx.world_size * self.num_workers) > 0 else 1)
             sampler_rank=(self.current_ctx.rank * self.num_workers + worker_id)
             self.current_ctx_worker = DistContext(
-                world_size=(sampler_world_size if sampler_world_size > 0 else 1),
+                world_size=sampler_world_size,
                 rank=sampler_rank,
-                global_world_size=(sampler_world_size if sampler_world_size > 0 else 1),
-                global_rank=sampler_rank,
+                global_world_size=sampler_world_size * self.current_ctx.world_size,
+                global_rank=(sampler_rank + self.current_ctx.rank),
                 group_name='mp_sampling_worker')
             print(f"DONE: set DistContext() {self.current_ctx_worker.worker_name}")
 
