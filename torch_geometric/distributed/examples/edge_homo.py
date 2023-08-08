@@ -91,8 +91,9 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
       else:
           whole_node_labels = torch.load(node_label_file)
   node_labels = whole_node_labels
-  
-  partition_data = (meta, num_partitions, partition_idx, graph, feature, node_pb, edge_pb, node_labels)
+  graph.labels = node_labels
+
+  partition_data = (graph, feature)
   print(f" ----- partition_data={partition_data[0]}  ") 
 
   # Initialize graphlearn_torch distributed worker group context.
