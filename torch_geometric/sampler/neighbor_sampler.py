@@ -120,6 +120,8 @@ class NeighborSampler(BaseSampler):
                 ]
 
             if not graph_store.meta['is_hetero']: # Homo
+                self.is_hetero = False
+
                 self.num_nodes = max(edge_attrs[0].size)
 
                 self.node_time: Optional[Tensor] = None
@@ -135,6 +137,7 @@ class NeighborSampler(BaseSampler):
 
                 self.row, self.colptr, self.perm = graph_store.csc()
             else:
+                self.is_hetero = True
                 # Obtain graph metadata:      
                 self.node_types = list(set(attr.group_name for attr in node_attrs))
                 self.edge_types = list(set(attr.edge_type for attr in edge_attrs))
@@ -205,8 +208,7 @@ class NeighborSampler(BaseSampler):
       ) -> NeighborOutput:
     
         # Homo
-        if not isinstance(srcs, dict):
-        # if self.data_type == DataType.homogeneous:
+        if not self.is_hetero:
             seed = srcs
             # TODO (matthias) `return_edge_id` if edge features present
             # TODO (matthias) Ideally, `seed` inherits dtype from `colptr`

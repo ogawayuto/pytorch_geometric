@@ -107,7 +107,6 @@ class GraphStore:
             :class:`EdgeAttr` class to customize the required attributes and
             their ordering to uniquely identify edges. (default: :obj:`None`)
     """
-
     def __init__(self, edge_attr_cls: Optional[Any] = None):
         super().__init__()
         self.__dict__['_edge_attr_cls'] = edge_attr_cls or EdgeAttr
@@ -305,10 +304,10 @@ class GraphStore:
         self,
         layout: EdgeLayout,
         edge_types: Optional[List[Any]] = None,
-        store: bool = False,
+         store: bool = False,
     ) -> ConversionOutputType:
 
-        if not self.meta['is_hetero']:  # Homo
+        if not self.meta['is_hetero']: # Homo
             edge_attrs: List[EdgeAttr] = []
             for attr in self.get_all_edge_attrs():
                 edge_attrs.append(attr)
@@ -316,9 +315,7 @@ class GraphStore:
             # Convert layout from its most favorable original layout:
             row, col, perm = [], [], []
             # for attrs in edge_attrs:
-            row, col, perm = (self._edge_to_layout(
-                edge_attrs[0],
-                layout, store))
+            row, col, perm = (self._edge_to_layout(edge_attrs[0], layout, store))
 
             return row, col, perm
         else:
@@ -331,9 +328,8 @@ class GraphStore:
             if edge_types is not None:
                 for edge_type in edge_types:
                     if edge_type not in edge_type_attrs:
-                        raise ValueError(
-                            f"The 'edge_index' of type '{edge_type}' "
-                            f"was not found in the graph store.")
+                        raise ValueError(f"The 'edge_index' of type '{edge_type}' "
+                                        f"was not found in the graph store.")
 
                 edge_type_attrs = {
                     key: attr

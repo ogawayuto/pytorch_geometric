@@ -1,10 +1,9 @@
 import torch.multiprocessing as mp
 import torch
 
-from itertools import chain
 from math import ceil
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Union, Tuple
+from typing import Dict, List, Optional, Union, Tuple
 from pyparsing import Any
 from ordered_set import OrderedSet
 
@@ -112,7 +111,7 @@ class PartialNeighborOutput:
   * output: the sampled neighbor output.
   """
   index: torch.Tensor
-  output: NeighborOutput
+  output: SamplerOutput
 
 
 class RpcSamplingCallee(RPCCallBase):
@@ -184,8 +183,9 @@ class DistNeighborSampler():
                replace: bool = False,
                subgraph_type: Union[SubgraphType, str] = 'directional',
                disjoint: bool = True,
+               temporal_strategy: str = 'uniform',
+               time_attr: Optional[str] = None,
                with_edge: bool = False,
-               with_neg: bool = False,
                collect_features: bool = False,
                concurrency: int = 1,
                device: Optional[torch.device] = None,
@@ -202,18 +202,17 @@ class DistNeighborSampler():
     self.num_neighbors = num_neighbors
     self.max_input_size = 0
     self.with_edge = with_edge
-    self.with_neg = with_neg
     self.collect_features = collect_features
     self.channel = channel
     self.concurrency = concurrency
-    self.device = device #get_available_device(device)
+    self.device = device
     self.event_loop = None
     self.replace = replace
     self.subgraph_type = subgraph_type
-    self.disjoint = True #disjoint
-    self.temporal_strategy = kwargs.pop('temporal_strategy', 'uniform')
-    self.time_attr = kwargs.pop('time_attr', None)
-    print(f"---- 555.2 -------- dist_neighbor_sampler - init done, self.current_context={self.current_ctx}  ")
+    self.disjoint = disjoint
+    self.temporal_strategy = temporal_strategy
+    self.time_attr = time_attr
+
 
   def register_sampler_rpc(self):  
     
@@ -248,27 +247,11 @@ class DistNeighborSampler():
         attrs = self.feature.get_all_tensor_attrs()
         print(f"------------- attrs={attrs}  ")
 
-        edge_features = None #data[4].get_tensor(group_name=attrs[0].group_name, attr_name=attrs[0].attr_name)
-        #group_name=(None, None), attr_name='edge_attr'
-        #print(f"--000000000000.2-- edge_features={edge_features} ")
+        edge_features = None
 
         if self.with_edge and edge_features is not None:
           self.dist_edge_feature = None
-          r""" DistFeature(meta=data[0],num_partitions=data[1], partition_index=data[2],local_feature=data[4], feature_pb=data[6], local_only=False, rpc_router=self.rpc_router, device=self.device)"""
-        r"""
-        if data.node_features is not None:
-          self.dist_node_feature = DistFeature(data.meta,
-            data.num_partitions, data.partition_idx,
-            data.node_features, data.node_feat_pb,
-            local_only=False, rpc_router=self.rpc_router, device=self.device
-          )
-        if self.with_edge and data.edge_features is not None:
-          self.dist_edge_feature = DistFeature(data.meta,
-            data.num_partitions, data.partition_idx,
-            data.edge_features, data.edge_feat_pb,
-            local_only=False, rpc_router=self.rpc_router, device=self.device
-          )
-        """
+
     else:
       raise ValueError(f"'{self.__class__.__name__}': found invalid input "
                        f"data type '{type(data)}'")
@@ -457,7 +440,6 @@ class DistNeighborSampler():
       )
     else:
 
-      print(f"--------- TTT.1------------")
       srcs = seed
       batch_size = seed.numel()
       src_batch = torch.arange(batch_size) if self.disjoint else None
@@ -472,12 +454,14 @@ class DistNeighborSampler():
       num_sampled_edges = [0]
 
       for one_hop_num in self.num_neighbors:
-        print(f"--------- TTT.1.1----------srcs={srcs}, one_hop_num={one_hop_num}, seed_time={seed_time}, src_batch={src_batch}")
         out = await self._sample_one_hop(srcs, one_hop_num, seed_time, src_batch)
 
         # remove duplicates
         # TODO: find better method to remove duplicates
         node_wo_dupl = OrderedSet(out.node) if not self.disjoint else OrderedSet(zip(out.batch, out.node))
+        if len(node_wo_dupl) == 0:
+          # no neighbors were sampled
+          break
         duplicates = node.intersection(node_wo_dupl)
         node_wo_dupl.difference_update(duplicates)
         srcs = torch.Tensor(node_wo_dupl if not self.disjoint else list(zip(*node_wo_dupl))[1]).type(torch.int64)
@@ -499,8 +483,9 @@ class DistNeighborSampler():
       print("col:")
       print(col)
 
-      node = (torch.Tensor(node).type(torch.int64)).t().contiguous()[1]
-      # node = node.t().contiguous()[1]
+      node = torch.Tensor(node).type(torch.int64)
+      if self.disjoint:
+        node = node.t().contiguous()
 
       sample_output = SamplerOutput(
         node=node,
@@ -513,7 +498,6 @@ class DistNeighborSampler():
         metadata={'input_type': None, 'bs': batch_size}
        )
 
-    print(f"--------- TTT.4------------")
     return sample_output
 
 
@@ -735,7 +719,6 @@ class DistNeighborSampler():
   ) -> NeighborOutput:
     r""" Merge partitioned neighbor outputs into a complete one.
     """
-    print(f"--------- TTT.5------------")
     partition_ids = partition_ids.tolist()
     cumm_sampled_nbrs_per_node = [r.output.metadata if r is not None else None for r in results]
     p_counters = [0] * self.dist_graph.meta['num_parts']
@@ -746,6 +729,8 @@ class DistNeighborSampler():
     sampled_nbrs_per_node = []
 
     for p_id in partition_ids:
+        if len(cumm_sampled_nbrs_per_node[p_id]) < 2:
+          continue
         start = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
         p_counters[p_id] += 1
         end = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
@@ -784,62 +769,49 @@ class DistNeighborSampler():
     Returns:
       Tuple[torch.Tensor, torch.Tensor]: unique node ids and edge_index.
     """
-    print(f"--------- TTT.5.1------------srcs={srcs}, batch={batch}, seed_time={seed_time}")
     device = torch.device(type='cpu')
 
-    srcs = srcs#.to(device) # all src nodes
-    batch = batch#.to(device)
-    seed_time = seed_time if seed_time is not None else None
+    srcs = srcs.to(device) # all src nodes
+    batch = batch.to(device) if batch is not None else None
+    seed_time = seed_time.to(device) if seed_time is not None else None
 
     nodes = torch.arange(srcs.size(0), dtype=torch.long, device=device)
     src_ntype = src_etype[0] if src_etype is not None else None
     
-    print(f"--------- TTT.5.2----------")
     partition_ids = self.dist_graph.get_partition_ids_from_nids(srcs, src_ntype)
     partition_ids = partition_ids.to(self.device)
 
-    print(f"--------- TTT.5.3----------")
     partition_results: List[PartialNeighborOutput] = [None] * self.dist_graph.meta['num_parts']
-    print(f"--------- TTT.5.3.1----------")
     remote_nodes: List[torch.Tensor] = []
-    print(f"--------- TTT.5.3.2----------")
     futs: List[torch.futures.Future] = []
 
-    print(f"--------- TTT.5.4----------")
     for i in range(self.dist_graph.num_partitions):
       p_id = (
-        #(self.data[2] + i) % self.data[1]
         (self.dist_graph.partition_idx + i) % self.dist_graph.num_partitions
         #(self.data.partition_idx + i) % self.data.num_partitions
       )
       p_mask = (partition_ids == p_id)
       p_srcs = torch.masked_select(srcs, p_mask)
-      p_batch = torch.masked_select(batch, p_mask)
-      p_seed_time = None #torch.masked_select(p_seed_time, p_mask)
+      p_batch = torch.masked_select(batch, p_mask) if batch is not None else None
+      p_seed_time = torch.masked_select(seed_time, p_mask) if seed_time is not None else None
 
-      print(f"--------- TTT.6.1----------")
       if p_srcs.shape[0] > 0:
         p_nodes = torch.masked_select(nodes, p_mask)
-        print(f"--------- TTT.6.2----------")
-        if p_id == self.dist_graph.num_partitions:
+        if p_id == self.dist_graph.partition_idx:
           
-          print(f"--------- TTT.6.3----------")
           p_nbr_out = self._sampler.sample_one_hop(p_srcs, one_hop_num, p_seed_time, p_batch, src_etype)
           partition_results.pop(p_id)
           partition_results.insert(p_id, PartialNeighborOutput(p_nodes, p_nbr_out))
         else:
-          print(f"--------- TTT.6.4----------")
           remote_nodes.append(p_nodes)
           to_worker = self.rpc_router.get_to_worker(p_id)
           futs.append(rpc_async(to_worker,
                                         self.rpc_sample_callee_id,
-                                        args=(p_srcs.cpu(), one_hop_num, p_seed_time, p_batch.cpu(), src_etype)))
+                                        args=(p_srcs.cpu(), one_hop_num, p_seed_time, p_batch.cpu() if p_batch is not None else None, src_etype)))
     
-    print(f"--------- TTT.6.5----------")
     # Without remote sampling results.
     if len(remote_nodes) == 0:
-      return partition_results[0].output
-      ###??? return partition_results[self.data[2]].output
+      return partition_results[self.dist_graph.partition_idx].output
     # With remote sampling results.
     res_fut_list = await wrap_torch_future(torch.futures.collect_all(futs))
     for i, res_fut in enumerate(res_fut_list):
@@ -853,7 +825,7 @@ class DistNeighborSampler():
         )
       )
     
-    print(f"-------- DistNSampler: async _sample_one_hop() before stitching -----------------  partition_results={partition_results}-------")
+    #*print(f"-------- DistNSampler: async _sample_one_hop() before stitching -----------------  partition_results={partition_results}-------")
     #*print("\n\n\n\n")
     return self.merge_results(partition_ids, partition_results)
 
