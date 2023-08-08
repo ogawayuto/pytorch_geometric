@@ -128,17 +128,15 @@ class DistLoader():  # , RPCMixin):
 
     def init_fn(self, worker_id):
         try:
-            if self.num_workers > 0:
-                print(
-                    f"init_worker_group() in {repr(self.neighbor_sampler)} _worker_loop(), worker_id-{worker_id}")
-                self.current_ctx_worker = DistContext(
-                    world_size=self.current_ctx.  world_size * self.num_workers,
-                    rank=self.current_ctx.rank * self.num_workers + worker_id,
-                    global_world_size=self.current_ctx.world_size * self.num_workers,
-                    global_rank=self.current_ctx.rank * self.num_workers + worker_id,
-                    group_name='mp_sampling_worker')
-                print(
-                    f"init_rpc() in {repr(self.neighbor_sampler)} _worker_loop(), worker_id-{worker_id}")
+            print(f"EXECUTING init_fn() in _worker_loop() of {repr(self.neighbor_sampler)} worker_id-{worker_id}: ")
+            self.current_ctx_worker = DistContext(
+                world_size=self.current_ctx.  world_size * self.num_workers,
+                rank=self.current_ctx.rank * self.num_workers + worker_id,
+                global_world_size=self.current_ctx.world_size * self.num_workers,
+                global_rank=self.current_ctx.rank * self.num_workers + worker_id,
+                group_name='mp_sampling_worker')
+            print(f"DONE: set DistContext() {self.current_ctx_worker.worker_name}")
+
             self.sampler_rpc_worker_names = {}
             init_rpc(
                 current_ctx=self.current_ctx_worker,
@@ -148,9 +146,11 @@ class DistLoader():  # , RPCMixin):
                 num_rpc_threads=self.num_rpc_threads,
                 rpc_timeout=self.rpc_timeout
             )
+            print(f"DONE: init_rpc()")
             self.neighbor_sampler.register_sampler_rpc()
+            print(f"DONE: register_sampler_rpc()")
             self.neighbor_sampler.init_event_loop()
-
+            print(f"DONE: init_event_loop()")
             # close rpc & worker group at exit
             atexit.register(close_sampler, worker_id, self.neighbor_sampler)
             # wait for all workers to init
