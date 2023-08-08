@@ -839,8 +839,13 @@ class DistNeighborSampler():
     result_map = {}
     # if isinstance(output.metadata, dict):
       #scan kv and add metadata
-    # TODO: check input type
-    input_type = output.metadata.get('input_type', '')
+    if isinstance(output.metadata, dict):
+        input_type = output.metadata.get('input_type', '')
+    else:
+        # ! Workaround for mismatch in metadata type here: dict() PyG NeighborSampler: tuple()
+        input_type = None
+        # erasing all metadata here
+        output.metadata = {'og_meta': output.metadata}
     # print(f"input_type from output.metadata={input_type}")
       # batch_size = output.metadata.get('bs', 1)
       # result_map['meta'] = torch.LongTensor([int(is_hetero), batch_size])
