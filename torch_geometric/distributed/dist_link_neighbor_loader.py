@@ -158,6 +158,7 @@ class DistLinkNeighborLoader(LinkLoader, DistLoader):
             neighbor_sampler = DistNeighborSampler(
                 data=data,  # data.graph?
                 current_ctx=current_ctx,
+                rpc_worker_names=rpc_worker_names,
                 num_neighbors=num_neighbors,
                 with_edge=with_edge,
                 replace=replace,
