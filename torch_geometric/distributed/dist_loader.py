@@ -25,7 +25,7 @@ from .rpc import init_rpc, global_barrier
 from .dist_mixin import RPCMixin
 from .dist_neighbor_sampler import DistNeighborSampler, close_sampler
 from .dist_context import DistContext, DistRole
-from ..channel import ChannelBase
+#from ..channel import ChannelBase
 from torch_geometric.typing import EdgeType, InputNodes, OptTensor, as_str
 
 
@@ -80,7 +80,7 @@ class DistLoader():  # , RPCMixin):
                  rpc_worker_names: Dict[DistRole, List[str]],
                  master_addr: str,
                  master_port: Union[int, str],
-                 channel: Optional[Union[ChannelBase, mp.Queue()]],
+                 channel: mp.Queue(), #Optional[Union[ChannelBase, mp.Queue()]],
                  num_rpc_threads: Optional[int] = 16,
                  rpc_timeout: Optional[int] = 180,
                  device: Optional[torch.device] = torch.device('cpu'),
