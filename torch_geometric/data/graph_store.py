@@ -304,53 +304,41 @@ class GraphStore:
         self,
         layout: EdgeLayout,
         edge_types: Optional[List[Any]] = None,
-         store: bool = False,
+        store: bool = False,
     ) -> ConversionOutputType:
 
-        if not self.meta['is_hetero']: # Homo
-            edge_attrs: List[EdgeAttr] = []
-            for attr in self.get_all_edge_attrs():
-                edge_attrs.append(attr)
+        # Obtain all edge attributes, grouped by type:
+        edge_type_attrs: Dict[EdgeType, List[EdgeAttr]] = defaultdict(list)
+        for attr in self.get_all_edge_attrs():
+            edge_type_attrs[attr.edge_type].append(attr)
 
-            # Convert layout from its most favorable original layout:
-            row, col, perm = [], [], []
-            # for attrs in edge_attrs:
-            row, col, perm = (self._edge_to_layout(edge_attrs[0], layout, store))
+        # Check that requested edge types exist and filter:
+        if edge_types is not None:
+            for edge_type in edge_types:
+                if edge_type not in edge_type_attrs:
+                    raise ValueError(f"The 'edge_index' of type '{edge_type}' "
+                                     f"was not found in the graph store.")
 
-            return row, col, perm
-        else:
-            # Obtain all edge attributes, grouped by type:
-            edge_type_attrs: Dict[EdgeType, List[EdgeAttr]] = defaultdict(list)
-            for attr in self.get_all_edge_attrs():
-                edge_type_attrs[attr.edge_type].append(attr)
+            edge_type_attrs = {
+                key: attr
+                for key, attr in edge_type_attrs.items() if key in edge_types
+            }
 
-            # Check that requested edge types exist and filter:
-            if edge_types is not None:
-                for edge_type in edge_types:
-                    if edge_type not in edge_type_attrs:
-                        raise ValueError(f"The 'edge_index' of type '{edge_type}' "
-                                        f"was not found in the graph store.")
+        # Convert layout from its most favorable original layout:
+        row_dict, col_dict, perm_dict = {}, {}, {}
+        for edge_type, attrs in edge_type_attrs.items():
+            layouts = [attr.layout for attr in attrs]
 
-                edge_type_attrs = {
-                    key: attr
-                    for key, attr in edge_type_attrs.items() if key in edge_types
-                }
+            if layout in layouts:  # No conversion needed.
+                attr = attrs[layouts.index(layout)]
+            elif EdgeLayout.COO in layouts:  # Prefer COO for conversion.
+                attr = attrs[layouts.index(EdgeLayout.COO)]
+            elif EdgeLayout.CSC in layouts:
+                attr = attrs[layouts.index(EdgeLayout.CSC)]
+            elif EdgeLayout.CSR in layouts:
+                attr = attrs[layouts.index(EdgeLayout.CSR)]
 
-            # Convert layout from its most favorable original layout:
-            row_dict, col_dict, perm_dict = {}, {}, {}
-            for edge_type, attrs in edge_type_attrs.items():
-                layouts = [attr.layout for attr in attrs]
+            row_dict[edge_type], col_dict[edge_type], perm_dict[edge_type] = (
+                self._edge_to_layout(attr, layout, store))
 
-                if layout in layouts:  # No conversion needed.
-                    attr = attrs[layouts.index(layout)]
-                elif EdgeLayout.COO in layouts:  # Prefer COO for conversion.
-                    attr = attrs[layouts.index(EdgeLayout.COO)]
-                elif EdgeLayout.CSC in layouts:
-                    attr = attrs[layouts.index(EdgeLayout.CSC)]
-                elif EdgeLayout.CSR in layouts:
-                    attr = attrs[layouts.index(EdgeLayout.CSR)]
-
-                row_dict[edge_type], col_dict[edge_type], perm_dict[edge_type] = (
-                    self._edge_to_layout(attr, layout, store))
-
-            return row_dict, col_dict, perm_dict
+        return row_dict, col_dict, perm_dict
