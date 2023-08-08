@@ -130,7 +130,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     edge_label_time=None,
     replace=False,
     directed=True,
-    disjoint=True,
+    disjoint=False,
     temporal_strategy='uniform',
     neg_sampling=NegativeSampling('triplet'), # TODO support 'triplet'
     neg_sampling_ratio=1,
