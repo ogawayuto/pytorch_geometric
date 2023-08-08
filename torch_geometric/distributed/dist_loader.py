@@ -137,7 +137,7 @@ class DistLoader():  # , RPCMixin):
                 global_world_size=sampler_world_size * self.current_ctx.world_size,
                 global_rank=(sampler_rank + self.current_ctx.rank),
                 group_name='mp_sampling_worker')
-            print(f"DONE: set DistContext() {self.current_ctx_worker.worker_name}")
+            print(f"DONE: set DistContext() {self.current_ctx_worker}")
 
             self.sampler_rpc_worker_names = {}
             init_rpc(
