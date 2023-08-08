@@ -118,8 +118,8 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   # Create distributed neighbor loader for training
   train_idx = train_idx.split(train_idx.size(0) // num_training_procs_per_node)[local_proc_rank]
 
-  edge_label_index_train = (None, torch.stack([partition_data[3].get_edge_index((None, 'coo'))[0], partition_data[3].get_edge_index((None, 'coo'))[1]], dim=0))
-  num_workers=4
+  edge_label_index_train = (None, torch.stack([graph.get_edge_index((None, 'coo'))[0], graph.get_edge_index((None, 'coo'))[1]], dim=0))
+  num_workers=2
   train_loader = pyg_dist.DistLinkNeighborLoader(
     data=partition_data,
     num_workers=num_workers,
@@ -150,12 +150,11 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     concurrency=2,
     current_ctx=current_ctx,
     rpc_worker_names=rpc_worker_names
-    
   )
 
   print(f"----------- 333 ------------- ")
   # below is same as train edge_label_index - TODO split into train test
-  edge_label_index_test = (None, torch.stack([partition_data[3].get_edge_index((None, 'coo'))[0], partition_data[3].get_edge_index((None, 'coo'))[1]], dim=0))
+  edge_label_index_test = (None, torch.stack([graph.get_edge_index((None, 'coo'))[0], graph.get_edge_index((None, 'coo'))[1]], dim=0))
 
   # Create distributed neighbor loader for testing.
   test_idx = test_idx.split(test_idx.size(0) // num_training_procs_per_node)[local_proc_rank]

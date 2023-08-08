@@ -180,7 +180,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
       loss.backward()
       optimizer.step()
       cnt=cnt+1
-      if cnt == 10:
+      if cnt == 100:
         break
     print(f"---- cnt ={cnt}, after batch loop ")
     # torch.cuda.empty_cache() # empty cache when GPU memory is not efficient.
