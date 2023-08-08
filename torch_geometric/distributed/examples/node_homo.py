@@ -112,7 +112,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   # Create distributed neighbor loader for training
   train_idx = train_idx.split(train_idx.size(0) // num_training_procs_per_node)[local_proc_rank]
   
-  num_workers=2
+  num_workers=0
   train_loader = pyg_dist.DistNeighborLoader(
     data=partition_data,
     num_neighbors=[15, 10, 5],
