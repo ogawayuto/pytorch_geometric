@@ -66,23 +66,22 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   
   feature = LocalFeatureStore.from_partition(osp.join(root_dir, f'{dataset_name}-partitions'), node_rank)
 
-  meta = {
-        "edge_types": None,
-        "is_hetero": False,
-        "node_types": None,
-        "num_parts": 2
-  }
-
-  feature.set_partition_meta(meta)
-  graph.set_partition_meta(meta)
-  print(f"-------- feature={feature} ")
-
   (
     meta, num_partitions, partition_idx, node_pb, edge_pb
   ) = load_partition_info(osp.join(root_dir, f'{dataset_name}-partitions'), node_rank)
 
   print(f"-------- meta={meta}, partition_idx={partition_idx}, node_pb={node_pb} ")
 
+  graph.num_partitions = num_partitions
+  graph.partition_idx = partition_idx
+  graph.node_pb = node_pb
+  graph.edge_pb = edge_pb
+  graph.meta = meta
+
+  feature.num_partitions = num_partitions
+  feature.partition_idx = partition_idx
+  feature.feature_pb = node_pb
+  feature.meta = meta
   
   if node_label_file is not None:
       if isinstance(node_label_file, dict):
