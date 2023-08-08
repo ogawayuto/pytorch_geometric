@@ -1,14 +1,7 @@
 import torch_geometric.distributed as pyg_dist
-import torch_geometric.distributed.rpc
-#import torch_geometric.distributed.dist_server
-#import torch_geometric.distributed.dist_client
-import torch_geometric.distributed.dist_dataset
 from torch_geometric.typing import Tuple
 from torch_geometric.distributed.dist_context import DistContext, DistRole
 from torch_geometric.distributed.partition import load_partition_info
-
-import json
-from torch_geometric.testing import get_random_edge_index
 
 
 import argparse
@@ -61,8 +54,6 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
                       root_dir: str,
                       node_label_file: str,
                       in_channels: int, out_channels: int,
-                      #dataset: pyg_dist.DistDataset,
-                      #dataset1: Tuple[LocalGraphStore, LocalFeatureStore],
                       train_idx: torch.Tensor, test_idx: torch.Tensor,
                       epochs: int, batch_size: int, master_addr: str,
                       training_pg_master_port: int, train_loader_master_port: int,
