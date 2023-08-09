@@ -150,7 +150,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     num_workers=num_workers,
     concurrency=2,
     master_addr=master_addr,
-    master_port=train_loader_master_port,
+    master_port=test_loader_master_port,
     async_sampling = True,
     filter_per_worker = False,
     current_ctx=current_ctx,
@@ -202,7 +202,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
 
     # Test accuracy.
     #if epoch == 0 or epoch > (epochs // 2):
-    if epoch % 5 == 0: # or epoch > (epochs // 2):
+    if epoch % 1 == 0: # or epoch > (epochs // 2):
       test_acc = test(model, test_loader, dataset_name)
       f.write(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
       print(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
