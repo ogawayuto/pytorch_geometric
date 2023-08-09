@@ -145,7 +145,7 @@ class DistNeighborLoader(NodeLoader, DistLoader):
         if self.channel and not self.filter_per_worker:
             out = self.channel.get()
             print(f'{repr(self)} retrieved Sampler result from PyG MSG channel')
-        return NodeLoader.filter_fn(out)
+        return NodeLoader.filter_fn(self, out)
         # if isinstance(out, SamplerOutput):
         #     edge_index = torch.stack([out.row, out.col])
         #     data = Data(x=out.metadata['nfeats'],
