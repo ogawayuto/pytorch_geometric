@@ -109,7 +109,6 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
         self.transform_sampler_output = transform_sampler_output
         self.filter_per_worker = filter_per_worker
         self.custom_cls = custom_cls
-        self.init_fn = custom_init if custom_init else self._init_fn
 
         self.input_data = NodeSamplerInput(
             input_id=input_id,
@@ -122,7 +121,7 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
         super().__init__(
             iterator,
             collate_fn=self.collate_fn,
-            worker_init_fn=self.init_fn,
+            worker_init_fn=self.worker_init_fn,
             **kwargs)
 
     def __call__(
