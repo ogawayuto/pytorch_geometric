@@ -114,9 +114,9 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   )
 
   # Create distributed neighbor loader for training
-  train_idx = train_idx.split(train_idx.size(0) // num_training_procs_per_node)[local_proc_rank]
+  train_idx = ('paper', train_idx.split(train_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
   
-  num_workers=4
+  num_workers=1
   train_loader = pyg_dist.DistNeighborLoader(
     data=partition_data,
     num_neighbors=[15, 10, 5],
@@ -126,7 +126,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     collect_features=True,
     device=torch.device('cpu'),
     num_workers=num_workers,
-    concurrency=2,
+    concurrency=1,
     master_addr=master_addr,
     master_port=train_loader_master_port,
     async_sampling = True,
@@ -137,7 +137,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
 
   print(f"----------- 333 ------------- ")
   # Create distributed neighbor loader for testing.
-  test_idx = test_idx.split(test_idx.size(0) // num_training_procs_per_node)[local_proc_rank]
+  test_idx = ('paper', test_idx.split(test_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
   test_loader = pyg_dist.DistNeighborLoader(
     data=partition_data,
     #data=dataset,
@@ -148,7 +148,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     collect_features=True,
     device=torch.device('cpu'),
     num_workers=num_workers,
-    concurrency=2,
+    concurrency=1,
     master_addr=master_addr,
     master_port=train_loader_master_port,
     async_sampling = True,
@@ -184,8 +184,8 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
       loss.backward()
       optimizer.step()
       cnt=cnt+1
-      if cnt == 10:
-        break
+      # if cnt == 10:
+      #   break
     print(f"---- cnt ={cnt}, after batch loop ")
     # torch.cuda.empty_cache() # empty cache when GPU memory is not efficient.
     #torch.cuda.synchronize()

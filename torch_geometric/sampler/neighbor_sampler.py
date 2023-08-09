@@ -167,6 +167,7 @@ class NeighborSampler(BaseSampler):
                 self.colptr_dict = remap_keys(colptr_dict, self.to_rel_type)
 
         self.num_neighbors = num_neighbors
+        self.num_hops = self.num_neighbors.num_hops
         self.replace = replace
         self.subgraph_type = SubgraphType(subgraph_type)
         self.disjoint = disjoint
@@ -230,14 +231,12 @@ class NeighborSampler(BaseSampler):
             )
             row, col, node, edge, batch = out[:4] + (None, )
 
-            cumm_sum_sampled_nbrs_per_node = out[6]
+            cumm_sum_nbrs_per_node = out[6]
     
             if self.disjoint:
                 batch, node = node.t().contiguous()
         else:
             seed = srcs
-            # TODO (matthias) `return_edge_id` if edge features present
-            # TODO (matthias) Ideally, `seed` inherits dtype from `colptr`
             colptrs = list(self.colptr_dict.values())
             dtype = colptrs[0].dtype if len(colptrs) > 0 else torch.int64
             seed = {k: v.to(dtype) for k, v in seed.items()}
@@ -248,15 +247,16 @@ class NeighborSampler(BaseSampler):
                 self.colptr_dict,
                 self.row_dict,
                 seed,
-                [one_hop_num], #self.num_neighbors.get_mapped_values(self.edge_types),
+                [one_hop_num],
                 self.node_time,
                 seed_time,
-                True,  # csc
+                True, # csc
                 self.replace,
                 self.directed,
                 self.disjoint,
                 self.temporal_strategy,
-                True,  # return_edge_id
+                True, # return_edge_id
+                True, # distributed
             )
             row, col, node, edge, batch = out[:4] + (None, )
 
@@ -272,7 +272,7 @@ class NeighborSampler(BaseSampler):
                 col=None,
                 edge=edge,
                 batch=batch,
-                metadata=(cumm_sum_sampled_nbrs_per_node)
+                metadata=(cumm_sum_nbrs_per_node)
             )
 
     # Node-based sampling #####################################################
