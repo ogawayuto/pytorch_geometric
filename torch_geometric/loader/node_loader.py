@@ -109,7 +109,6 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
         self.transform_sampler_output = transform_sampler_output
         self.filter_per_worker = filter_per_worker
         self.custom_cls = custom_cls
-        self.filter_fn = custom_filter if custom_filter else self._filter_fn
         self.init_fn = custom_init if custom_init else self._init_fn
 
         self.input_data = NodeSamplerInput(
@@ -150,7 +149,7 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
     def _init_fn(self, worker_id):
         pass  
       
-    def _filter_fn(
+    def filter_fn(
         self,
         out: Union[SamplerOutput, HeteroSamplerOutput],
     ) -> Union[Data, HeteroData]:
