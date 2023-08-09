@@ -191,7 +191,7 @@ class DistLoader():  # , RPCMixin):
             data.edge = out.edge
             data.node = out.node
             data.batch = out.batch
-            data.batch_size = out.batch.numel() if data.batch is not None else 0
+            data.batch_size = out.metadata['bs']
 
             if 'edge_label_index' in out.metadata:
                 # binary negative sampling
