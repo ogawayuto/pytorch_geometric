@@ -195,110 +195,11 @@ class DistLinkNeighborLoader(LinkLoader, DistLoader):
                             transform=transform,
                             transform_sampler_output=transform_sampler_output,
                             filter_per_worker=filter_per_worker,
-                            custom_init=self.init_fn,
                             **kwargs
                             )
         
     def filter_fn(
         self,
         out: Union[SamplerOutput, HeteroSamplerOutput],
-    ) -> Union[Data, HeteroData]:
-        r"""Joins the sampled nodes with their corresponding features,
-        returning the resulting :class:`~torch_geometric.data.Data` or
-        :class:`~torch_geometric.data.HeteroData` object to be used downstream.
-        """
-        if self.channel and not self.filter_per_worker:
-            out = self.channel.get()
-            print(f'{repr(self)} retrieved Sampler result from PyG MSG channel')
-
-        if isinstance(out, SamplerOutput):
-            edge_index = torch.stack([out.row, out.col])
-            data = Data(x=out.metadata['nfeats'],
-                        edge_index=edge_index,
-                        edge_attr=out.metadata['efeats'],
-                        y=out.metadata['nlabels']
-                        )
-            data.edge = out.edge
-            data.node = out.node
-            data.batch = out.batch
-            data.batch_size = out.metadata['bs']
-
-            if 'edge_label_index' in out.metadata:
-                # binary negative sampling
-                # In this case, we reverse the edge_label_index and put it into the
-                # reversed edgetype subgraph
-                edge_label_index = torch.stack(
-                    (out.metadata['edge_label_index'][1],
-                     out.metadata['edge_label_index'][0]), dim=0)
-                data.edge_label_index = edge_label_index
-                data.edge_label = out.metadata['edge_label']
-            elif 'src_index' in out.metadata:
-                # triplet negative sampling
-                # In this case, src_index and dst_pos/neg_index fields follow the nodetype
-                data.src_index = out.metadata['src_index']
-                data.dst_pos_index = out.metadata['dst_pos_index']
-                data.dst_neg_index = out.metadata['dst_neg_index']
-            else:
-                pass
-
-        elif isinstance(out, HeteroSamplerOutput):
-            # TODO: Refactor hetero
-          #   def to_hetero_data(
-          #   hetero_sampler_out: HeteroSamplerOutput,
-          #   batch_label_dict: Optional[Dict[NodeType, torch.Tensor]] = None,
-          #   node_feat_dict: Optional[Dict[NodeType, torch.Tensor]] = None,
-          #   edge_feat_dict: Optional[Dict[EdgeType, torch.Tensor]] = None,
-          #   **kwargs
-          # ) -> HeteroData:
-            node_dict, row_dict, col_dict, edge_dict = {}, {}, {}, {}
-            nfeat_dict, efeat_dict = {}, {}
-
-            for ntype in self._node_types:
-                ids_key = f'{as_str(ntype)}.ids'
-                if ids_key in out:
-                    node_dict[ntype] = out[ids_key].to(self.to_device)
-                    nfeat_key = f'{as_str(ntype)}.nfeats'
-                if nfeat_key in out:
-                    nfeat_dict[ntype] = out[nfeat_key].to(self.to_device)
-
-            for etype_str, rev_etype in self._etype_str_to_rev.items():
-                rows_key = f'{etype_str}.rows'
-                cols_key = f'{etype_str}.cols'
-                if rows_key in out:
-                    # The edge index should be reversed.
-                    row_dict[rev_etype] = out[cols_key].to(self.to_device)
-                    col_dict[rev_etype] = out[rows_key].to(self.to_device)
-                    eids_key = f'{etype_str}.eids'
-                if eids_key in out:
-                    edge_dict[rev_etype] = out[eids_key].to(self.to_device)
-                    efeat_key = f'{etype_str}.efeats'
-                if efeat_key in out:
-                    efeat_dict[rev_etype] = out[efeat_key].to(self.to_device)
-
-            batch_dict = {
-                self.input_type: node_dict[self.input_type]
-                [: self.batch_size]}
-            output = HeteroSamplerOutput(
-                node_dict, row_dict, col_dict, edge_dict
-                if len(edge_dict) else None, batch_dict,
-                edge_types=self._edge_types, device=self.to_device)
-
-            if len(nfeat_dict) == 0:
-                nfeat_dict = None
-            if len(efeat_dict) == 0:
-                efeat_dict = None
-
-            batch_labels_key = f'{self.input_type}.nlabels'
-            if batch_labels_key in out:
-                batch_labels = out[batch_labels_key].to(self.to_device)
-            else:
-                batch_labels = None
-            label_dict = {self.input_type: batch_labels}
-
-            # res_data = to_hetero_data(
-            #     output, label_dict, nfeat_dict, efeat_dict)
-
-        else:
-            raise TypeError(f"'{self.__class__.__name__}'' found invalid "
-                            f"type: '{type(out)}'")
-        return data
+        ) -> Union[Data, HeteroData]:
+        return DistLoader.filter_fn(self, out)
