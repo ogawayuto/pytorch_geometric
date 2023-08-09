@@ -180,7 +180,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
       loss.backward()
       optimizer.step()
       cnt=cnt+1
-      if cnt == 100:
+      if cnt == 10:
         break
     print(f"---- cnt ={cnt}, after batch loop ")
     # torch.cuda.empty_cache() # empty cache when GPU memory is not efficient.
@@ -198,7 +198,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
 
     # Test accuracy.
     #if epoch == 0 or epoch > (epochs // 2):
-    if epoch % 5 == 0: # or epoch > (epochs // 2):
+    if epoch % 1 == 0: # or epoch > (epochs // 2):
       test_acc = test(model, test_loader, dataset_name)
       f.write(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
       print(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
