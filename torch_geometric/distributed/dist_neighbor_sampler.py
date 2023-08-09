@@ -436,7 +436,7 @@ class DistNeighborSampler():
           {etype: torch.cat(eids) for etype, eids in out_edges.items()}
           if self.with_edge else None
         ),
-        metadata={'input_type': input_type, 'bs': batch_size}
+        metadata={'input_type': input_type, 'batch_size': batch_size}
       )
     else:
 
@@ -461,6 +461,7 @@ class DistNeighborSampler():
         node_wo_dupl = OrderedSet(out.node) if not self.disjoint else OrderedSet(zip(out.batch, out.node))
         if len(node_wo_dupl) == 0:
           # no neighbors were sampled
+          print("NO NEIGHBORS NO NEIGHBORS NO NEIGHBORS  NO NEIGHBORS NO NEIGHBORS NO NEIGHBORSNO NEIGHBORS")
           break
         duplicates = node.intersection(node_wo_dupl)
         node_wo_dupl.difference_update(duplicates)
@@ -476,12 +477,12 @@ class DistNeighborSampler():
         sampled_nbrs_per_node += out.metadata
 
       row, col = torch.ops.pyg.get_adj_matrix(seed, node_with_dupl, sampled_nbrs_per_node, self._sampler.num_nodes)
-      print("sampled nbrs per node: ")
-      print(sampled_nbrs_per_node)
-      print("row:")
-      print(row)
-      print("col:")
-      print(col)
+      # print("sampled nbrs per node: ")
+      # print(sampled_nbrs_per_node)
+      # print("row:")
+      # print(row)
+      # print("col:")
+      # print(col)
 
       node = torch.Tensor(node).type(torch.int64)
       if self.disjoint:
@@ -495,7 +496,7 @@ class DistNeighborSampler():
         batch=batch if self.disjoint else None,
         num_sampled_nodes=num_sampled_nodes if num_sampled_nodes != None else None,
         num_sampled_edges=num_sampled_edges if num_sampled_edges != None else None,
-        metadata={'input_type': None, 'bs': batch_size}
+        metadata={'input_type': None, 'batch_size': batch_size}
        )
 
     return sample_output
