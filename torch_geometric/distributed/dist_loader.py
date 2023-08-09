@@ -22,14 +22,13 @@ from torch_geometric.data import Data, HeteroData
 from torch_geometric.sampler import HeteroSamplerOutput, SamplerOutput
 
 from .rpc import init_rpc, global_barrier
-from .dist_mixin import RPCMixin
 from .dist_neighbor_sampler import DistNeighborSampler, close_sampler
 from .dist_context import DistContext, DistRole
 #from ..channel import ChannelBase
 from torch_geometric.typing import EdgeType, InputNodes, OptTensor, as_str
 
 
-class DistLoader():  # , RPCMixin):
+class DistLoader():
     r"""
     #TODO: Update readme
     # A distributed loader that preform sampling from nodes.

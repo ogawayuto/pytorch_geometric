@@ -1,4 +1,4 @@
 
-class RPCMixin:
+class RpcMixin:
     r"""placeholder"""
     pass         

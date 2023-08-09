@@ -122,7 +122,6 @@ class DistNeighborLoader(NodeLoader, DistLoader):
                             rpc_worker_names=rpc_worker_names,
                             **kwargs
                             )
-
         NodeLoader.__init__(self,
                             # Tuple[FeatureStore, GraphStore]
                             data=data,
