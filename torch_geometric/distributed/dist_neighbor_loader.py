@@ -58,7 +58,7 @@ class DistNeighborLoader(NodeLoader, DistLoader):
       """
 
     def __init__(self,
-                 data: Tuple[Dict, int, int, LocalGraphStore, LocalFeatureStore, torch.Tensor, torch.Tensor],
+                 data: Tuple[LocalFeatureStore, LocalGraphStore],
                  num_neighbors: Union[List[int], Dict[EdgeType, List[int]]],
                  master_addr: str,
                  master_port: Union[int, str],
@@ -178,13 +178,6 @@ class DistNeighborLoader(NodeLoader, DistLoader):
 
         # elif isinstance(out, HeteroSamplerOutput):
         #     # TODO: Refactor hetero
-        #   #   def to_hetero_data(
-        #   #   hetero_sampler_out: HeteroSamplerOutput,
-        #   #   batch_label_dict: Optional[Dict[NodeType, torch.Tensor]] = None,
-        #   #   node_feat_dict: Optional[Dict[NodeType, torch.Tensor]] = None,
-        #   #   edge_feat_dict: Optional[Dict[EdgeType, torch.Tensor]] = None,
-        #   #   **kwargs
-        #   # ) -> HeteroData:
         #     node_dict, row_dict, col_dict, edge_dict = {}, {}, {}, {}
         #     nfeat_dict, efeat_dict = {}, {}
 
@@ -230,10 +223,7 @@ class DistNeighborLoader(NodeLoader, DistLoader):
         #         batch_labels = None
         #     label_dict = {self.input_type: batch_labels}
 
-        #     # res_data = to_hetero_data(
-        #     #     output, label_dict, nfeat_dict, efeat_dict)
-
         # else:
         #     raise TypeError(f"'{self.__class__.__name__}'' found invalid "
         #                     f"type: '{type(out)}'")
-        return data
+        # return data

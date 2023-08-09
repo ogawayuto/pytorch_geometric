@@ -93,7 +93,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   node_labels = whole_node_labels
   graph.labels = node_labels
 
-  partition_data = (graph, feature)
+  partition_data = (feature, graph)
   print(f" ----- partition_data={partition_data[0]}  ") 
 
   # Initialize graphlearn_torch distributed worker group context.

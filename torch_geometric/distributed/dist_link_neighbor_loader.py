@@ -113,7 +113,7 @@ class DistLinkNeighborLoader(LinkLoader, DistLoader):
     """
 
     def __init__(self,
-                 data: Tuple[Dict, int, int, LocalGraphStore, LocalFeatureStore, torch.Tensor, torch.Tensor],
+                 data: Tuple[LocalFeatureStore, LocalGraphStore],
                  num_neighbors: Union[List[int], Dict[EdgeType, List[int]]],
                  master_addr: str,
                  master_port: Union[int, str],

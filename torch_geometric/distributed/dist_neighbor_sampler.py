@@ -196,8 +196,8 @@ class DistNeighborSampler():
     self.rpc_worker_names = rpc_worker_names
 
     self.data = data
-    self.graph = data[0]
-    self.feature = data[1]
+    self.graph = data[1]
+    self.feature = data[0]
 
     self.num_neighbors = num_neighbors
     self.max_input_size = 0
