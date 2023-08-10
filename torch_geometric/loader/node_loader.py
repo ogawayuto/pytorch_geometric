@@ -88,8 +88,6 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
         transform_sampler_output: Optional[Callable] = None,
         filter_per_worker: Optional[bool] = None,
         custom_cls: Optional[HeteroData] = None,
-        custom_init: Optional[Callable] = None,
-        custom_filter: Optional[Callable] = None,
         input_id: OptTensor = None,
         **kwargs,
     ):
@@ -214,9 +212,6 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
         #          f'best practices for PyG [{link}])')
 
         # Execute `filter_fn` in the main process:
-        if self.channel:
-            self.channel = torch.multiprocessing.Queue()
-
 
         return DataLoaderIterator(super()._get_iterator(), self.filter_fn)
 

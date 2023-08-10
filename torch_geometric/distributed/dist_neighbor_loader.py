@@ -145,7 +145,7 @@ class DistNeighborLoader(NodeLoader, DistLoader):
       """
       # TODO: Align dist_sampler metadata output with original pyg sampler, such that filter_fn() from the NodeLoader can be used
       if self.channel:
-          out = self.channel.get()
+          out = self.neighbor_sampler.channel.get()
           logging.debug(f'{repr(self)} retrieved Sampler result from PyG MSG channel')
           
       if isinstance(out, SamplerOutput):

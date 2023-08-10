@@ -125,8 +125,7 @@ class DistLoader():
                 group_name='mp_sampling_worker')
 
             print(f"DONE: set DistContext() {self.current_ctx_worker}")
-            if self.channel:
-                print('stop')
+
             self.sampler_rpc_worker_names = {}
             init_rpc(
                 current_ctx=self.current_ctx_worker,
