@@ -88,7 +88,7 @@ class DistLoader():
         if master_port is not None:
             self.master_port = int(master_port)
         elif os.environ.get('MASTER_PORT') is not None:
-            self.master_port = int(os.environ['MASTER_PORT']) + 1
+            self.master_port = int(os.environ['MASTER_PORT'])# + 1
         else:
             raise ValueError(
                 f"'{self.__class__.__name__}': missing master port "
@@ -139,10 +139,10 @@ class DistLoader():
             print(f"DONE: register_sampler_rpc()")
             self.neighbor_sampler.init_event_loop()
             print(f"DONE: init_event_loop()")
-            # close rpc & worker group at exit
-            atexit.register(close_sampler, worker_id, self.neighbor_sampler)
             if self.channel:
                 atexit.register(empty_queue, self.channel, worker_id)
+            # close rpc & worker group at exit
+            atexit.register(close_sampler, worker_id, self.neighbor_sampler)
             # wait for all workers to init
             global_barrier()
             print(f">>> FINISHED EXECUTING init_fn()")
