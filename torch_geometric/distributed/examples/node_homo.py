@@ -180,7 +180,6 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
         loss = F.nll_loss(out, batch.y[:batch.batch_size])
         loss.backward()
         optimizer.step()
-        cnt=cnt+1
     print(f"---- cnt ={cnt}, after batch loop ")
     # torch.cuda.empty_cache() # empty cache when GPU memory is not efficient.
     #torch.cuda.synchronize()
