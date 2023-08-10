@@ -188,7 +188,8 @@ def run_training_proc(
             optimizer.step()
             cnt = cnt+1
             if cnt == 5:
-                break
+              train_loader.channel._reset()
+              break
         print(f"---- cnt ={cnt}, after batch loop ")
         # torch.cuda.empty_cache() # empty cache when GPU memory is not efficient.
         # torch.cuda.synchronize()

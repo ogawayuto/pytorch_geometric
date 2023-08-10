@@ -214,9 +214,7 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
         #          f'best practices for PyG [{link}])')
 
         # Execute `filter_fn` in the main process:
-        if self.channel:
-            self.channel._reset()
-                        
+
         return DataLoaderIterator(super()._get_iterator(), self.filter_fn)
 
     def __enter__(self):
