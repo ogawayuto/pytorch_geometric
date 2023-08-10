@@ -1,21 +1,7 @@
-# Copyright 2022 Alibaba Group Holding Limited. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
-
 from typing import Optional
 
 import torch
+import logging 
 
 from torch_geometric.sampler.base import (
     EdgeSamplerInput, SamplingType, SamplingConfig, NegativeSampling
@@ -35,6 +21,7 @@ from ..typing import Tuple, Dict, Union
 from torch_geometric.data import Data, HeteroData
 from torch_geometric.sampler import HeteroSamplerOutput, SamplerOutput
 from torch_geometric.typing import EdgeType, InputNodes, OptTensor, as_str
+from torch_geometric.loader.utils import filter_custom_store
 
 class DistLinkNeighborLoader(LinkLoader, DistLoader):
     # TODO: Update readme
@@ -157,7 +144,7 @@ class DistLinkNeighborLoader(LinkLoader, DistLoader):
 
         if neighbor_sampler is None:
             neighbor_sampler = DistNeighborSampler(
-                data=data,  # data.graph?
+                data=data,
                 current_ctx=current_ctx,
                 rpc_worker_names=rpc_worker_names,
                 num_neighbors=num_neighbors,
@@ -202,4 +189,88 @@ class DistLinkNeighborLoader(LinkLoader, DistLoader):
         self,
         out: Union[SamplerOutput, HeteroSamplerOutput],
         ) -> Union[Data, HeteroData]:
-        return DistLoader.filter_fn(self, out)
+        r"""Joins the sampled nodes with their corresponding features,
+        returning the resulting :class:`~torch_geometric.data.Data` or
+        :class:`~torch_geometric.data.HeteroData` object to be used downstream.
+        """
+        # TODO: Align dist_sampler metadata output with original pyg sampler, such that filter_fn() from the LinkLoader can be used
+        if self.channel:
+          out = self.channel.get()
+          logging.debug(f'{repr(self)} retrieved Sampler result from PyG MSG channel')
+          
+        if isinstance(out, SamplerOutput):
+          edge_index = torch.stack([out.row, out.col])
+          data = Data(x=out.metadata['nfeats'],
+                      edge_index=edge_index,
+                      edge_attr=out.metadata['efeats'],
+                      y=out.metadata['nlabels']
+                      )
+          
+          data.edge = out.edge
+          data.node = out.node
+          data.batch = out.batch
+          data.num_sampled_nodes = out.num_sampled_nodes
+          data.num_sampled_edges = out.num_sampled_edges
+          
+          try:
+            data.batch_size = out.metadata['bs']
+            data.input_id = out.metadata['input_id']
+            data.seed_time = out.metadata['seed_time']
+          except KeyError:
+            pass
+
+          if self.neg_sampling is None or self.neg_sampling.is_binary():
+              data.edge_label_index = out.metadata[1]
+              data.edge_label = out.metadata[2]
+              data.edge_label_time = out.metadata[3]
+          elif self.neg_sampling.is_triplet():
+              data.src_index = out.metadata[1]
+              data.dst_pos_index = out.metadata[2]
+              data.dst_neg_index = out.metadata[3]
+              data.seed_time = out.metadata[4]
+              # Sanity removals in case `edge_label_index` and
+              # `edge_label_time` are attributes of the base `data` object:
+              del data.edge_label_index  # Sanity removals.
+              del data.edge_label_time
+
+        elif isinstance(out, HeteroSamplerOutput):
+
+            data = filter_custom_store(*self.data, out.node, out.row,
+                                        out.col, out.edge, self.custom_cls)
+
+            for key, node in out.node.items():
+                if 'n_id' not in data[key]:
+                    data[key].n_id = node
+
+            for key, edge in (out.edge or {}).items():
+                if 'e_id' not in data[key]:
+                    data[key].e_id = edge
+
+            data.set_value_dict('batch', out.batch)
+            data.set_value_dict('num_sampled_nodes', out.num_sampled_nodes)
+            data.set_value_dict('num_sampled_edges', out.num_sampled_edges)
+
+            input_type = self.input_data.input_type
+            data[input_type].input_id = out.metadata[0]
+
+            if self.neg_sampling is None or self.neg_sampling.is_binary():
+                data[input_type].edge_label_index = out.metadata[1]
+                data[input_type].edge_label = out.metadata[2]
+                data[input_type].edge_label_time = out.metadata[3]
+            elif self.neg_sampling.is_triplet():
+                data[input_type[0]].src_index = out.metadata[1]
+                data[input_type[-1]].dst_pos_index = out.metadata[2]
+                data[input_type[-1]].dst_neg_index = out.metadata[3]
+                data[input_type[0]].seed_time = out.metadata[4]
+                data[input_type[-1]].seed_time = out.metadata[4]
+                # Sanity removals in case `edge_label_index` and
+                # `edge_label_time` are attributes of the base `data` object:
+                if input_type in data.edge_types:
+                    del data[input_type].edge_label_index
+                    del data[input_type].edge_label_time
+
+        else:
+            raise TypeError(f"'{self.__class__.__name__}'' found invalid "
+                            f"type: '{type(out)}'")
+
+        return data if self.transform is None else self.transform(data)
