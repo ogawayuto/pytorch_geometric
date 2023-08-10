@@ -77,6 +77,11 @@ class DistLoader():
           
         self.current_ctx = current_ctx
         self.rpc_worker_names = rpc_worker_names
+        self.pid = mp.current_process().pid
+        self.device = device
+        self.batch_size = kwargs.get('batch_size', 64)
+        self.num_workers = kwargs.get('num_workers', 0)
+        
         if master_addr is not None:
             self.master_addr = str(master_addr)
         elif os.environ.get('MASTER_ADDR') is not None:
@@ -95,7 +100,8 @@ class DistLoader():
                 f"'{self.__class__.__name__}': missing master port "
                 "for rpc communication, try to provide it or set it "
                 "with environment variable 'MASTER_ADDR'")
-        print(f"MASTER_ADDR: {self.master_addr} MASTER_PORT: {self.master_port}")
+        #self.master_port = self.master_port + 1
+        print(f"{repr(self)} MASTER_ADDR: {self.master_addr} MASTER_PORT: {self.master_port}")
         
         self.num_rpc_threads = num_rpc_threads
         if self.num_rpc_threads is not None:
@@ -103,13 +109,7 @@ class DistLoader():
         self.rpc_timeout = rpc_timeout
         if self.rpc_timeout is not None:
             assert self.rpc_timeout > 0
-
-        self.device = device
-        self.batch_size = kwargs.get('batch_size', 64)
-        self.num_workers = kwargs.get('num_workers', 0)
-
-        self.pid = mp.current_process().pid
-
+            
         if self.num_workers == 0:
             self.worker_init_fn(0)
             
@@ -149,7 +149,7 @@ class DistLoader():
         except RuntimeError:
             raise RuntimeError(
                 f"init_fn() defined in {repr(self)} didn't initialize the worker_loop of {repr(self.neighbor_sampler)}")
-      
+
     # def filter_fn(
     #     self,
     #     out: Union[SamplerOutput, HeteroSamplerOutput],
