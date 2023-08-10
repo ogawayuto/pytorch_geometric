@@ -111,8 +111,8 @@ class DistLoader():
 
         if self.num_workers == 0:
             self.worker_init_fn(0)
-        if self.channel:
-            atexit.register(close_channel, self.channel)
+        # if self.channel:
+        #     atexit.register(close_channel, self.channel)
             
     def worker_init_fn(self, worker_id):
         try:
