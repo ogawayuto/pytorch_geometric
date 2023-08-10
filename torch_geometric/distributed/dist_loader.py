@@ -1,21 +1,8 @@
-# Copyright 2022 Alibaba Group Holding Limited. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
 import atexit
 import torch
 import torch.multiprocessing as mp
 import os
+import logging
 from typing import Callable, Optional, Tuple, Dict, Union, List
 
 from torch_geometric.data import Data, HeteroData
@@ -25,7 +12,6 @@ from .rpc import init_rpc, global_barrier
 from .dist_neighbor_sampler import DistNeighborSampler, close_sampler
 from .dist_context import DistContext, DistRole
 #from ..channel import ChannelBase
-from torch_geometric.typing import EdgeType, InputNodes, OptTensor, as_str
 
 
 class DistLoader():
@@ -108,7 +94,8 @@ class DistLoader():
                 f"'{self.__class__.__name__}': missing master port "
                 "for rpc communication, try to provide it or set it "
                 "with environment variable 'MASTER_ADDR'")
-
+        print(f"MASTER_ADDR: {self.master_addr} MASTER_PORT: {self.master_port}")
+        
         self.num_rpc_threads = num_rpc_threads
         if self.num_rpc_threads is not None:
             assert self.num_rpc_threads > 0
@@ -161,109 +148,104 @@ class DistLoader():
         except RuntimeError:
             raise RuntimeError(
                 f"init_fn() defined in {repr(self)} didn't initialize the worker_loop of {repr(self.neighbor_sampler)}")
-
-    def channel_get(self) -> Union[Data, HeteroData]:
-        if self.channel and not self.filter_per_worker:
-            out = self.channel.get()
-            print(f'{repr(self)} retrieved Sampler result from PyG MSG channel')
-        return out
       
-    def filter_fn(
-        self,
-        out: Union[SamplerOutput, HeteroSamplerOutput],
-        ) -> Union[Data, HeteroData]:
-        r"""Joins the sampled nodes with their corresponding features,
-        returning the resulting :class:`~torch_geometric.data.Data` or
-        :class:`~torch_geometric.data.HeteroData` object to be used downstream.
-        """
-        if self.channel and not self.filter_per_worker:
-            out = self.channel.get()
-            print(f'{repr(self)} retrieved Sampler result from PyG MSG channel')
+    # def filter_fn(
+    #     self,
+    #     out: Union[SamplerOutput, HeteroSamplerOutput],
+    #     ) -> Union[Data, HeteroData]:
+    #     r"""Joins the sampled nodes with their corresponding features,
+    #     returning the resulting :class:`~torch_geometric.data.Data` or
+    #     :class:`~torch_geometric.data.HeteroData` object to be used downstream.
+    #     """
+    #     if self.channel and not self.filter_per_worker:
+    #         out = self.channel.get()
+    #         print(f'{repr(self)} retrieved Sampler result from PyG MSG channel')
             
-        if isinstance(out, SamplerOutput):
-            edge_index = torch.stack([out.row, out.col])
-            data = Data(x=out.metadata['nfeats'],
-                        edge_index=edge_index,
-                        edge_attr=out.metadata['efeats'],
-                        y=out.metadata['nlabels']
-                        )
-            data.edge = out.edge
-            data.node = out.node
-            data.batch = out.batch
-            data.batch_size = out.metadata['bs']
+    #     if isinstance(out, SamplerOutput):
+    #         edge_index = torch.stack([out.row, out.col])
+    #         data = Data(x=out.metadata['nfeats'],
+    #                     edge_index=edge_index,
+    #                     edge_attr=out.metadata['efeats'],
+    #                     y=out.metadata['nlabels']
+    #                     )
+    #         data.edge = out.edge
+    #         data.node = out.node
+    #         data.batch = out.batch
+    #         data.batch_size = out.metadata['bs']
 
-            if 'edge_label_index' in out.metadata:
-                # binary negative sampling
-                # In this case, we reverse the edge_label_index and put it into the
-                # reversed edgetype subgraph
-                edge_label_index = torch.stack(
-                    (out.metadata['edge_label_index'][1],
-                     out.metadata['edge_label_index'][0]), dim=0)
-                data.edge_label_index = edge_label_index
-                data.edge_label = out.metadata['edge_label']
-            elif 'src_index' in out.metadata:
-                # triplet negative sampling
-                # In this case, src_index and dst_pos/neg_index fields follow the nodetype
-                data.src_index = out.metadata['src_index']
-                data.dst_pos_index = out.metadata['dst_pos_index']
-                data.dst_neg_index = out.metadata['dst_neg_index']
-            else:
-                pass
+    #         if 'edge_label_index' in out.metadata:
+    #             # binary negative sampling
+    #             # In this case, we reverse the edge_label_index and put it into the
+    #             # reversed edgetype subgraph
+    #             edge_label_index = torch.stack(
+    #                 (out.metadata['edge_label_index'][1],
+    #                  out.metadata['edge_label_index'][0]), dim=0)
+    #             data.edge_label_index = edge_label_index
+    #             data.edge_label = out.metadata['edge_label']
+    #         elif 'src_index' in out.metadata:
+    #             # triplet negative sampling
+    #             # In this case, src_index and dst_pos/neg_index fields follow the nodetype
+    #             data.src_index = out.metadata['src_index']
+    #             data.dst_pos_index = out.metadata['dst_pos_index']
+    #             data.dst_neg_index = out.metadata['dst_neg_index']
+    #         else:
+    #             pass
 
-        elif isinstance(out, HeteroSamplerOutput):
-            # TODO: Refactor hetero
-            node_dict, row_dict, col_dict, edge_dict = {}, {}, {}, {}
-            nfeat_dict, efeat_dict = {}, {}
+    #     elif isinstance(out, HeteroSamplerOutput):
+    #         # TODO: Refactor hetero
+    #         node_dict, row_dict, col_dict, edge_dict = {}, {}, {}, {}
+    #         nfeat_dict, efeat_dict = {}, {}
 
-            for ntype in self._node_types:
-                ids_key = f'{as_str(ntype)}.ids'
-                if ids_key in out:
-                    node_dict[ntype] = out[ids_key].to(self.to_device)
-                    nfeat_key = f'{as_str(ntype)}.nfeats'
-                if nfeat_key in out:
-                    nfeat_dict[ntype] = out[nfeat_key].to(self.to_device)
+    #         for ntype in self._node_types:
+    #             ids_key = f'{as_str(ntype)}.ids'
+    #             if ids_key in out:
+    #                 node_dict[ntype] = out[ids_key].to(self.to_device)
+    #                 nfeat_key = f'{as_str(ntype)}.nfeats'
+    #             if nfeat_key in out:
+    #                 nfeat_dict[ntype] = out[nfeat_key].to(self.to_device)
 
-            for etype_str, rev_etype in self._etype_str_to_rev.items():
-                rows_key = f'{etype_str}.rows'
-                cols_key = f'{etype_str}.cols'
-                if rows_key in out:
-                    # The edge index should be reversed.
-                    row_dict[rev_etype] = out[cols_key].to(self.to_device)
-                    col_dict[rev_etype] = out[rows_key].to(self.to_device)
-                    eids_key = f'{etype_str}.eids'
-                if eids_key in out:
-                    edge_dict[rev_etype] = out[eids_key].to(self.to_device)
-                    efeat_key = f'{etype_str}.efeats'
-                if efeat_key in out:
-                    efeat_dict[rev_etype] = out[efeat_key].to(self.to_device)
+    #         for etype_str, rev_etype in self._etype_str_to_rev.items():
+    #             rows_key = f'{etype_str}.rows'
+    #             cols_key = f'{etype_str}.cols'
+    #             if rows_key in out:
+    #                 # The edge index should be reversed.
+    #                 row_dict[rev_etype] = out[cols_key].to(self.to_device)
+    #                 col_dict[rev_etype] = out[rows_key].to(self.to_device)
+    #                 eids_key = f'{etype_str}.eids'
+    #             if eids_key in out:
+    #                 edge_dict[rev_etype] = out[eids_key].to(self.to_device)
+    #                 efeat_key = f'{etype_str}.efeats'
+    #             if efeat_key in out:
+    #                 efeat_dict[rev_etype] = out[efeat_key].to(self.to_device)
 
-            batch_dict = {
-                self.input_type: node_dict[self.input_type]
-                [: self.batch_size]}
-            output = HeteroSamplerOutput(
-                node_dict, row_dict, col_dict, edge_dict
-                if len(edge_dict) else None, batch_dict,
-                edge_types=self._edge_types, device=self.to_device)
+    #         batch_dict = {
+    #             self.input_type: node_dict[self.input_type]
+    #             [: self.batch_size]}
+    #         output = HeteroSamplerOutput(
+    #             node_dict, row_dict, col_dict, edge_dict
+    #             if len(edge_dict) else None, batch_dict,
+    #             edge_types=self._edge_types, device=self.to_device)
 
-            if len(nfeat_dict) == 0:
-                nfeat_dict = None
-            if len(efeat_dict) == 0:
-                efeat_dict = None
+    #         if len(nfeat_dict) == 0:
+    #             nfeat_dict = None
+    #         if len(efeat_dict) == 0:
+    #             efeat_dict = None
 
-            batch_labels_key = f'{self.input_type}.nlabels'
-            if batch_labels_key in out:
-                batch_labels = out[batch_labels_key].to(self.to_device)
-            else:
-                batch_labels = None
-            label_dict = {self.input_type: batch_labels}
+    #         batch_labels_key = f'{self.input_type}.nlabels'
+    #         if batch_labels_key in out:
+    #             batch_labels = out[batch_labels_key].to(self.to_device)
+    #         else:
+    #             batch_labels = None
+    #         label_dict = {self.input_type: batch_labels}
 
-        else:
-            raise TypeError(f"'{self.__class__.__name__}'' found invalid "
-                            f"type: '{type(out)}'")
-        return data
+    #     else:
+    #         raise TypeError(f"'{self.__class__.__name__}'' found invalid "
+    #                         f"type: '{type(out)}'")
+    #     return data
       
       
     def __repr__(self) -> str:
       return f"{self.__class__.__name__}()-PID{self.pid}@{self.device}"
+  
       
 

@@ -935,4 +935,4 @@ def close_sampler(worker_id, sampler):
     sampler.event_loop.shutdown_loop()
   except AttributeError:
     pass
-  shutdown_rpc(graceful=True)
+  shutdown_rpc(graceful=False)
