@@ -937,8 +937,9 @@ def close_sampler(worker_id, sampler):
     pass
   shutdown_rpc(graceful=True)
   
-def empty_queue(channel):
+def empty_queue(channel, worker_id):
     # Make sure that mp.Queue is empty at exit and RAM is cleared
+    print(f"Calling empty_queue as worker-id {worker_id} is closing")
     while not channel.empty():
         channel.get_nowait()
     channel.close()

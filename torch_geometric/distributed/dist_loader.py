@@ -249,10 +249,3 @@ class DistLoader():
     def __repr__(self) -> str:
       return f"{self.__class__.__name__}()-PID{self.pid}@{self.device}"
   
-      
-def close_channel(channel):
-    print("Executing close_channel")
-    # Make sure that mp.Queue is empty at exit and RAM is cleared
-    while not channel.empty():
-        channel.get_nowait()
-    channel.close()
