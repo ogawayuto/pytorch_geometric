@@ -187,8 +187,8 @@ def run_training_proc(
             loss.backward()
             optimizer.step()
             cnt = cnt+1
-            if cnt == 5:
-              break
+            # if cnt == 5:
+            #   break
         print(f"---- cnt ={cnt}, after batch loop ")
         # torch.cuda.empty_cache() # empty cache when GPU memory is not efficient.
         # torch.cuda.synchronize()
@@ -204,20 +204,20 @@ def run_training_proc(
         print("********************************************************************************************** ")
         print("\n\n\n\n\n\n")
 
-        # Test accuracy.
-        # if epoch == 0 or epoch > (epochs // 2):
-        if epoch % 1 == 0:  # or epoch > (epochs // 2):
-            test_acc = test(model, test_loader, dataset_name)
-            f.write(
-                f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
-            print(
-                f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
+        # # Test accuracy.
+        # # if epoch == 0 or epoch > (epochs // 2):
+        # if epoch % 1 == 0:  # or epoch > (epochs // 2):
+        #     test_acc = test(model, test_loader, dataset_name)
+        #     f.write(
+        #         f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
+        #     print(
+        #         f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
 
-            print("\n\n\n\n\n\n")
-            print("********************************************************************************************** ")
-        print("\n\n\n\n\n\n")
-        # torch.cuda.synchronize()
-        torch.distributed.barrier()
+        #     print("\n\n\n\n\n\n")
+        #     print("********************************************************************************************** ")
+        # print("\n\n\n\n\n\n")
+        # # torch.cuda.synchronize()
+        # torch.distributed.barrier()
 
     print(f"----------- 555 ------------- ")
 
