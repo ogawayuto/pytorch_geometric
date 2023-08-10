@@ -9,7 +9,7 @@ from torch_geometric.data import Data, HeteroData
 from torch_geometric.sampler import HeteroSamplerOutput, SamplerOutput
 
 from .rpc import init_rpc, global_barrier
-from .dist_neighbor_sampler import DistNeighborSampler, close_sampler, empty_queue
+from .dist_neighbor_sampler import DistNeighborSampler, close_sampler
 from .dist_context import DistContext, DistRole
 #from ..channel import ChannelBase
 
