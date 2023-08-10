@@ -9,7 +9,7 @@ from torch_geometric.data import Data, HeteroData
 from torch_geometric.sampler import HeteroSamplerOutput, SamplerOutput
 
 from .rpc import init_rpc, global_barrier
-from .dist_neighbor_sampler import DistNeighborSampler, close_sampler
+from .dist_neighbor_sampler import DistNeighborSampler, close_sampler, empty_queue
 from .dist_context import DistContext, DistRole
 #from ..channel import ChannelBase
 
@@ -111,8 +111,6 @@ class DistLoader():
 
         if self.num_workers == 0:
             self.worker_init_fn(0)
-        # if self.channel:
-        #     atexit.register(close_channel, self.channel)
             
     def worker_init_fn(self, worker_id):
         try:
@@ -142,7 +140,9 @@ class DistLoader():
             self.neighbor_sampler.init_event_loop()
             print(f"DONE: init_event_loop()")
             # close rpc & worker group at exit
-            #atexit.register(close_sampler, worker_id, self.neighbor_sampler)
+            atexit.register(close_sampler, worker_id, self.neighbor_sampler)
+            if self.channel:
+                atexit.register(empty_queue, self.channel)
             # wait for all workers to init
             global_barrier()
             print(f">>> FINISHED EXECUTING init_fn()")
@@ -251,6 +251,7 @@ class DistLoader():
   
       
 def close_channel(channel):
+    print("Executing close_channel")
     # Make sure that mp.Queue is empty at exit and RAM is cleared
     while not channel.empty():
         channel.get_nowait()

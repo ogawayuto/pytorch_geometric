@@ -936,3 +936,9 @@ def close_sampler(worker_id, sampler):
   except AttributeError:
     pass
   shutdown_rpc(graceful=True)
+  
+def empty_queue(channel):
+    # Make sure that mp.Queue is empty at exit and RAM is cleared
+    while not channel.empty():
+        channel.get_nowait()
+    channel.close()
