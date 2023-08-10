@@ -932,10 +932,10 @@ class DistNeighborSampler():
 def close_sampler(worker_id, sampler):
   # Make sure that mp.Queue is empty at exit and RAM is cleared
   try:
-    print(f"Calling empty_queue in {repr(sampler)} worker-id {worker_id} is closing")
-    while not sampler.channel.empty():
-      sampler.channel.get_nowait()
-    sampler.channel.close()
+    # print(f"Calling empty_queue in {repr(sampler)} worker-id {worker_id} is closing")
+    # while not sampler.channel.empty():
+    #   sampler.channel.get_nowait()
+    # sampler.channel.close()
     print(f"Closing event_loop in {repr(sampler)} worker-id {worker_id}")
     sampler.event_loop.shutdown_loop()
   except AttributeError:
