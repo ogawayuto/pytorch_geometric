@@ -139,8 +139,6 @@ class DistLoader():
             print(f"DONE: register_sampler_rpc()")
             self.neighbor_sampler.init_event_loop()
             print(f"DONE: init_event_loop()")
-            if self.channel:
-                atexit.register(empty_queue, self.channel, worker_id)
             # close rpc & worker group at exit
             atexit.register(close_sampler, worker_id, self.neighbor_sampler)
             # wait for all workers to init

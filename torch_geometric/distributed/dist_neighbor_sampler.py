@@ -930,6 +930,11 @@ class DistNeighborSampler():
 # Sampling Utilities ##########################################################
 
 def close_sampler(worker_id, sampler):
+  # Make sure that mp.Queue is empty at exit and RAM is cleared
+  print(f"Calling empty_queue as worker-id {worker_id} is closing")
+  while not sampler.channel.empty():
+        sampler.channel.get_nowait()
+    sampler.channel.close()
   print(f"Closing rpc in {repr(sampler)} worker-id {worker_id}")
   try:
     sampler.event_loop.shutdown_loop()
@@ -937,9 +942,3 @@ def close_sampler(worker_id, sampler):
     pass
   shutdown_rpc(graceful=True)
   
-def empty_queue(channel, worker_id):
-    # Make sure that mp.Queue is empty at exit and RAM is cleared
-    print(f"Calling empty_queue as worker-id {worker_id} is closing")
-    while not channel.empty():
-        channel.get_nowait()
-    channel.close()
