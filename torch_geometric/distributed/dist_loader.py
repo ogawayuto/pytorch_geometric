@@ -142,7 +142,7 @@ class DistLoader():
             self.neighbor_sampler.init_event_loop()
             print(f"DONE: init_event_loop()")
             # close rpc & worker group at exit
-            atexit.register(close_sampler, worker_id, self.neighbor_sampler)
+            #atexit.register(close_sampler, worker_id, self.neighbor_sampler)
             # wait for all workers to init
             global_barrier()
             print(f">>> FINISHED EXECUTING init_fn()")
