@@ -252,7 +252,6 @@ class DistLoader():
       
 def close_channel(channel):
     # Make sure that mp.Queue is empty at exit and RAM is cleared
-    if channel:
-        while not channel.empty():
-            channel.get_nowait()
-        channel.close()
+    while not channel.empty():
+        channel.get_nowait()
+    channel.close()
