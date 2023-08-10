@@ -90,7 +90,6 @@ class DistNeighborLoader(NodeLoader, DistLoader):
             raise ValueError("Received conflicting 'input_time' and "
                              "'time_attr' arguments: 'input_time' is set "
                              "while 'time_attr' is not set.")
-
         channel = torch.multiprocessing.Queue() if async_sampling else None
 
         if neighbor_sampler is None:
@@ -200,3 +199,6 @@ class DistNeighborLoader(NodeLoader, DistLoader):
                 f"type: '{type(out)}'")
         
       return data if self.transform is None else self.transform(data)
+
+    def __repr__(self):
+      return DistLoader.__repr__(self)
