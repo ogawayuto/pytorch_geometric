@@ -163,9 +163,6 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
             if isinstance(self.data, Data):
                  data = filter_data(self.data, out.node, out.row, out.col,
                                 out.edge, self.node_sampler.edge_permutation)
-            else: # Tuple[FeatureStore, GraphStore]
-                 data = filter_custom_store(*self.data, out.node, out.row,
-                                            out.col, out.edge, self.custom_cls)
 
             if 'n_id' not in data:
                 data.n_id = out.node
@@ -185,10 +182,6 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
                 data = filter_hetero_data(self.data, out.node, out.row,
                                           out.col, out.edge,
                                           self.node_sampler.edge_permutation)
-            else:  # Tuple[FeatureStore, GraphStore]
-                data = filter_hetero_custom_store(*self.data, out.node, out.row,
-                                           out.col, out.edge, self.custom_cls)
-
             for key, node in out.node.items():
                 if 'n_id' not in data[key]:
                     data[key].n_id = node
