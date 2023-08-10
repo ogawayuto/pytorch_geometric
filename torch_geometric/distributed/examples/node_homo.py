@@ -215,9 +215,9 @@ def run_training_proc(
 
             print("\n\n\n\n\n\n")
             print("********************************************************************************************** ")
-            print("\n\n\n\n\n\n")
-            # torch.cuda.synchronize()
-            torch.distributed.barrier()
+        print("\n\n\n\n\n\n")
+        # torch.cuda.synchronize()
+        torch.distributed.barrier()
 
     print(f"----------- 555 ------------- ")
 
