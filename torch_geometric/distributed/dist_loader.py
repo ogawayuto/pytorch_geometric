@@ -142,7 +142,7 @@ class DistLoader():
             # close rpc & worker group at exit
             atexit.register(close_sampler, worker_id, self.neighbor_sampler)
             if self.channel:
-                atexit.register(empty_queue, self.channel)
+                atexit.register(empty_queue, self.channel, worker_id)
             # wait for all workers to init
             global_barrier()
             print(f">>> FINISHED EXECUTING init_fn()")
