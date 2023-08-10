@@ -203,7 +203,7 @@ class DistNeighborLoader(NodeLoader, DistLoader):
   
 def __del__(self):
     while not self.channel.empty():
-        self.channel.get()
-    
+        self.channel.get_nowait()
+    self.channel.close()
     NodeLoader.__del__(self)
       
