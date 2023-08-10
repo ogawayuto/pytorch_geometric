@@ -31,23 +31,22 @@ def test(model, test_loader, dataset_name):
   for i, batch in enumerate(test_loader):
     if i == 0:
       device = batch.x.device
-    elif i <= 5:
-    
-      x = model(batch.x, batch.edge_index)[:batch.batch_size]
-      xs.append(x.cpu())
-      y_true.append(batch.y[:batch.batch_size].cpu())
-      print(f"---- test():  i={i}, batch={batch} ----")
-      del batch
-    else:  
-      xs = [t.to(device) for t in xs]
-      y_true = [t.to(device) for t in y_true]
-      y_pred = torch.cat(xs, dim=0).argmax(dim=-1, keepdim=True)
-      y_true = torch.cat(y_true, dim=0).unsqueeze(-1)
-      test_acc = evaluator.eval({
-        'y_true': y_true,
-        'y_pred': y_pred,
-      })['acc']
-      return test_acc
+    x = model(batch.x, batch.edge_index)[:batch.batch_size]
+    xs.append(x.cpu())
+    y_true.append(batch.y[:batch.batch_size].cpu())
+    print(f"---- test():  i={i}, batch={batch} ----")
+    del batch
+    if i == 5: 
+      break
+  xs = [t.to(device) for t in xs]
+  y_true = [t.to(device) for t in y_true]
+  y_pred = torch.cat(xs, dim=0).argmax(dim=-1, keepdim=True)
+  y_true = torch.cat(y_true, dim=0).unsqueeze(-1)
+  test_acc = evaluator.eval({
+    'y_true': y_true,
+    'y_pred': y_pred,
+  })['acc']
+  return test_acc
 
 
 def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
@@ -172,14 +171,17 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   for epoch in range(0, epochs):
     model.train()
     start = time.time()
-    for cnt, batch in enumerate(train_loader):
-      if cnt <= 5:
-        print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
-        optimizer.zero_grad()
-        out = model(batch.x, batch.edge_index)[:batch.batch_size].log_softmax(dim=-1)
-        loss = F.nll_loss(out, batch.y[:batch.batch_size])
-        loss.backward()
-        optimizer.step()
+    cnt=0
+    for batch in train_loader:
+      print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
+      optimizer.zero_grad()
+      out = model(batch.x, batch.edge_index)[:batch.batch_size].log_softmax(dim=-1)
+      loss = F.nll_loss(out, batch.y[:batch.batch_size])
+      loss.backward()
+      optimizer.step()
+      cnt=cnt+1
+      if cnt == 10:
+        break
     print(f"---- cnt ={cnt}, after batch loop ")
     # torch.cuda.empty_cache() # empty cache when GPU memory is not efficient.
     #torch.cuda.synchronize()
