@@ -184,7 +184,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     device=current_device,
     async_sampling=True,
     master_addr=master_addr,
-    master_port=train_loader_master_port,
+    master_port=test_loader_master_port,
     concurrency=2,
     current_ctx=current_ctx,
     rpc_worker_names=rpc_worker_names

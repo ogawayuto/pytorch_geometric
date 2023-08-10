@@ -220,18 +220,22 @@ class DistLinkNeighborLoader(LinkLoader, DistLoader):
             pass
 
           if self.neg_sampling is None or self.neg_sampling.is_binary():
-              data.edge_label_index = out.metadata[1]
-              data.edge_label = out.metadata[2]
-              data.edge_label_time = out.metadata[3]
+              # TODO
+              pass
+              # data.edge_label_index = out.metadata[1]
+              # data.edge_label = out.metadata[2]
+              # data.edge_label_time = out.metadata[3]
           elif self.neg_sampling.is_triplet():
-              data.src_index = out.metadata[1]
-              data.dst_pos_index = out.metadata[2]
-              data.dst_neg_index = out.metadata[3]
-              data.seed_time = out.metadata[4]
-              # Sanity removals in case `edge_label_index` and
-              # `edge_label_time` are attributes of the base `data` object:
-              del data.edge_label_index  # Sanity removals.
-              del data.edge_label_time
+              # TODO
+              pass
+              # data.src_index = out.metadata[1]
+              # data.dst_pos_index = out.metadata[2]
+              # data.dst_neg_index = out.metadata[3]
+              # data.seed_time = out.metadata[4]
+              # # Sanity removals in case `edge_label_index` and
+              # # `edge_label_time` are attributes of the base `data` object:
+              # del data.edge_label_index  # Sanity removals.
+              # del data.edge_label_time
 
         elif isinstance(out, HeteroSamplerOutput):
 
@@ -274,3 +278,6 @@ class DistLinkNeighborLoader(LinkLoader, DistLoader):
                             f"type: '{type(out)}'")
 
         return data if self.transform is None else self.transform(data)
+      
+    def __repr__(self):
+      return DistLoader.__repr__(self)
