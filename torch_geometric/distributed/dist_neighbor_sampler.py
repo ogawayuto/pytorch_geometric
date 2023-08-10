@@ -476,12 +476,12 @@ class DistNeighborSampler():
         sampled_nbrs_per_node += out.metadata
 
       row, col = torch.ops.pyg.get_adj_matrix(seed, node_with_dupl, sampled_nbrs_per_node, self._sampler.num_nodes)
-      # print("sampled nbrs per node: ")
-      # print(sampled_nbrs_per_node)
-      # print("row:")
-      # print(row)
-      # print("col:")
-      # print(col)
+      print("sampled nbrs per node: ")
+      print(sampled_nbrs_per_node)
+      print("row:")
+      print(row)
+      print("col:")
+      print(col)
 
       node = torch.Tensor(node).type(torch.int64)
       if self.disjoint:

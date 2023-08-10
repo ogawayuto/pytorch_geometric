@@ -2,7 +2,7 @@ import torch
 import logging
 from typing import Callable, Optional, Tuple, Dict, Union, List
 
-from torch_geometric.data import Data, HeteroData
+from torch_geometric.data import Data, HeteroData, GraphStore, FeatureStore
 from torch_geometric.sampler import HeteroSamplerOutput, SamplerOutput
 from torch_geometric.typing import EdgeType, InputNodes, OptTensor, as_str
 from torch_geometric.loader.node_loader import NodeLoader
@@ -80,12 +80,14 @@ class DistNeighborLoader(NodeLoader, DistLoader):
                  with_edge: bool = False,
                  concurrency: int = 0,
                  collect_features: bool = True,
-                 filter_per_worker: Optional[bool] = None,
+                 filter_per_worker: Optional[bool] = False,
                  async_sampling: bool = True,
                  device: torch.device = torch.device('cpu'),
                  **kwargs,
                  ):
 
+        assert (isinstance(data[0], FeatureStore) and (data[1], GraphStore)), "Data needs to be Tuple[LocalFeatureStore, LocalGraphStore]"
+        
         if input_time is not None and time_attr is None:
             raise ValueError("Received conflicting 'input_time' and "
                              "'time_attr' arguments: 'input_time' is set "

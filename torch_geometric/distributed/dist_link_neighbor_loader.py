@@ -18,7 +18,7 @@ from torch_geometric.loader.link_loader import LinkLoader
 from torch_geometric.distributed.local_graph_store import LocalGraphStore
 from torch_geometric.distributed.local_feature_store import LocalFeatureStore
 from ..typing import Tuple, Dict, Union
-from torch_geometric.data import Data, HeteroData
+from torch_geometric.data import Data, HeteroData, GraphStore, FeatureStore
 from torch_geometric.sampler import HeteroSamplerOutput, SamplerOutput
 from torch_geometric.typing import EdgeType, InputNodes, OptTensor, as_str
 from torch_geometric.loader.utils import filter_custom_store
@@ -130,6 +130,9 @@ class DistLinkNeighborLoader(LinkLoader, DistLoader):
                  **kwargs
                  ):
 
+        
+        assert (isinstance(data[0], FeatureStore) and (data[1], GraphStore)), "Data needs to be Tuple[LocalFeatureStore, LocalGraphStore]"
+        
         channel = torch.multiprocessing.Queue() if async_sampling else None
 
         if (edge_label_time is not None) != (time_attr is not None):
