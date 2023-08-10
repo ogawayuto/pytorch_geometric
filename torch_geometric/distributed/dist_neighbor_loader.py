@@ -1,4 +1,5 @@
 import torch
+import logging
 from typing import Callable, Optional, Tuple, Dict, Union, List
 
 from torch_geometric.data import Data, HeteroData
@@ -94,7 +95,7 @@ class DistNeighborLoader(NodeLoader, DistLoader):
 
         if neighbor_sampler is None:
             neighbor_sampler = DistNeighborSampler(
-                data=data,  # data.graph?
+                data=data,
                 current_ctx=current_ctx,
                 rpc_worker_names=rpc_worker_names,
                 num_neighbors=num_neighbors,
@@ -142,10 +143,10 @@ class DistNeighborLoader(NodeLoader, DistLoader):
       returning the resulting :class:`~torch_geometric.data.Data` or
       :class:`~torch_geometric.data.HeteroData` object to be used downstream.
       """
-      # TODO: Unify dist_sampler metadata output with original pyg sampler, such that filter_fn() from the NodeLoader can be used
-      if self.channel and not self.filter_per_worker:
+      # TODO: Align dist_sampler metadata output with original pyg sampler, such that filter_fn() from the NodeLoader can be used
+      if self.channel:
           out = self.channel.get()
-          print(f'{repr(self)} retrieved Sampler result from PyG MSG channel')
+          logging.debug(f'{repr(self)} retrieved Sampler result from PyG MSG channel')
           
       if isinstance(out, SamplerOutput):
           edge_index = torch.stack([out.row, out.col])
@@ -165,7 +166,6 @@ class DistNeighborLoader(NodeLoader, DistLoader):
             data.batch_size = out.metadata['bs']
             data.input_id = out.metadata['input_id']
             data.seed_time = out.metadata['seed_time']
-            
           except KeyError:
             pass
             
@@ -192,7 +192,6 @@ class DistNeighborLoader(NodeLoader, DistLoader):
           data[input_type].input_id = out.metadata['bs']
           data[input_type].seed_time = out.metadata['input_id']
           data[input_type].batch_size = out.metadata['seed_time']
-            
         except KeyError:
             pass
 
