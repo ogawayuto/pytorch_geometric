@@ -74,6 +74,7 @@ class DistLoader():
 
         self.neighbor_sampler = neighbor_sampler
         self.channel = channel
+          
         self.current_ctx = current_ctx
         self.rpc_worker_names = rpc_worker_names
         if master_addr is not None:

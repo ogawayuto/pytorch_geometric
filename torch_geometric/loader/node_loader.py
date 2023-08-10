@@ -144,9 +144,6 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
             out = self.filter_fn(out)
 
         return out
-    
-    def _init_fn(self, worker_id):
-        pass  
       
     def filter_fn(
         self,
