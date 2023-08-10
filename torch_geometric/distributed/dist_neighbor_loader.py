@@ -200,11 +200,3 @@ class DistNeighborLoader(NodeLoader, DistLoader):
                 f"type: '{type(out)}'")
         
       return data if self.transform is None else self.transform(data)
-  
-def __del__(self):
-  if self.channel:
-    while not self.channel.empty():
-        self.channel.get_nowait()
-    self.channel.close()
-  NodeLoader.__del__(self)
-      

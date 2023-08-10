@@ -111,7 +111,9 @@ class DistLoader():
 
         if self.num_workers == 0:
             self.worker_init_fn(0)
-
+        if self.channel:
+            atexit.register(close_channel, self.channel)
+            
     def worker_init_fn(self, worker_id):
         try:
             print(f">>> EXECUTING init_fn() in _worker_loop() of {repr(self.neighbor_sampler)} worker_id-{worker_id}: ")
@@ -248,4 +250,9 @@ class DistLoader():
       return f"{self.__class__.__name__}()-PID{self.pid}@{self.device}"
   
       
-
+def close_channel(channel):
+    # Make sure that mp.Queue is empty at exit and RAM is cleared
+    if channel:
+        while not channel.empty():
+            channel.get_nowait()
+        channel.close()
