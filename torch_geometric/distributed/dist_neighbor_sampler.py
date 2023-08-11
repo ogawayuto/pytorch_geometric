@@ -316,7 +316,7 @@ class DistNeighborSampler():
       inputs (NodeSamplerInput): The input data with node indices to start
         sampling from.
     """
-    print(f"--------- TTT.2------------inputs={inputs}")
+    #print(f"--------- TTT.2------------inputs={inputs}")
     inputs = NodeSamplerInput.cast(inputs)
     if self.channel is None:
       return self.event_loop.run_task(coro=self._send_adapter(self.node_sample,
@@ -324,7 +324,7 @@ class DistNeighborSampler():
     cb = kwargs.get('callback', None)
     self.event_loop.add_task(coro=self._send_adapter(self.node_sample, inputs),
                   callback=cb)
-    print(f"--------- TTT.3------------")
+    #print(f"--------- TTT.3------------")
     return None
     
   def sample_from_edges(
@@ -399,7 +399,7 @@ class DistNeighborSampler():
     seed_time = inputs.time.to(self.device) if inputs.time is not None else None
     input_type = inputs.input_type
 
-    print(f" ----777.1 -------- distNSampler:  node_sample, inputs={inputs}, seed={seed}, input_type={input_type} ")
+    #print(f" ----777.1 -------- distNSampler:  node_sample, inputs={inputs}, seed={seed}, input_type={input_type} ")
     if(self.dist_graph.meta["is_hetero"]):
       assert input_type is not None
       src_dict = inducer.init_node({input_type: input_seeds})
@@ -811,6 +811,7 @@ class DistNeighborSampler():
     
     # Without remote sampling results.
     if len(remote_nodes) == 0:
+      print("NO REMOTE NEIGHBORS")
       return partition_results[self.dist_graph.partition_idx].output
     # With remote sampling results.
     res_fut_list = await wrap_torch_future(torch.futures.collect_all(futs))

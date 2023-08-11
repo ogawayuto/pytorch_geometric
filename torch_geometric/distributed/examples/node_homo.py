@@ -176,6 +176,11 @@ def run_training_proc(
         model.train()
         start = time.time()
         cnt = 0
+        print(f"TRAIN LOADER CHANNEL: {train_loader.channel}")
+        print(f"TEST LOADER CHANNEL: {test_loader.channel}")
+        print(f"TRAIN LOADER CHANNEL EMPTY: {train_loader.channel.empty()}")
+        print(f"TEST LOADER CHANNEL: {test_loader.channel.empty()}")
+
         for batch in train_loader:
             print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
             optimizer.zero_grad()
@@ -202,18 +207,18 @@ def run_training_proc(
 
         # Test accuracy.
         # if epoch == 0 or epoch > (epochs // 2):
-        if epoch % 1 == 0:  # or epoch > (epochs // 2):
-            test_acc = test(model, test_loader, dataset_name)
-            f.write(
-                f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
-            print(
-                f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
+        # if epoch % 5 == 0:  # or epoch > (epochs // 2):
+        #     test_acc = test(model, test_loader, dataset_name)
+        #     f.write(
+        #         f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
+        #     print(
+        #         f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
 
-            print("\n\n\n\n\n\n")
-            print("********************************************************************************************** ")
-        print("\n\n\n\n\n\n")
-        # torch.cuda.synchronize()
-        torch.distributed.barrier()
+        #     print("\n\n\n\n\n\n")
+        #     print("********************************************************************************************** ")
+        # print("\n\n\n\n\n\n")
+        # # torch.cuda.synchronize()
+        # torch.distributed.barrier()
 
     print(f"----------- 555 ------------- ")
 
