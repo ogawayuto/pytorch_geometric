@@ -205,7 +205,7 @@ class NeighborSampler(BaseSampler):
         one_hop_num: Union[int, Dict[EdgeType, List[int]]],
         seed_time: Optional[Union[Tensor, Dict[NodeType, Tensor]]] = None,
         batch: OptTensor = None,
-        src_etype: EdgeType = None
+        edge_type: EdgeType = None
       ) -> Union[SamplerOutput, HeteroSamplerOutput]:
     
         # Homo
@@ -247,13 +247,13 @@ class NeighborSampler(BaseSampler):
         else:
             colptrs = list(self.colptr_dict.values())
             dtype = colptrs[0].dtype if len(colptrs) > 0 else torch.int64
-            seed = {src_etype[2]: srcs.to(dtype)} # if csc
+            seed = {edge_type[2]: srcs.to(dtype)} # if csc
             one_hop_num_dict = remap_keys(one_hop_num, self.to_rel_type)
-            node_types = [src_etype[2], src_etype[0]] # if csc
+            node_types = [edge_type[2], edge_type[0]] # if csc
 
             out = torch.ops.pyg.hetero_neighbor_sample(
                 node_types,
-                [src_etype],
+                [edge_type],
                 self.colptr_dict,
                 self.row_dict,
                 seed,

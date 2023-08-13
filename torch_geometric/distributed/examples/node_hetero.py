@@ -119,7 +119,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   num_workers=0
   train_loader = pyg_dist.DistNeighborLoader(
     data=partition_data,
-    num_neighbors=[15, 10, 5],
+    num_neighbors=[3, 2, 1],
     input_nodes=train_idx,
     batch_size=batch_size,
     shuffle=True,
@@ -141,7 +141,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   test_loader = pyg_dist.DistNeighborLoader(
     data=partition_data,
     #data=dataset,
-    num_neighbors=[15, 10, 5],
+    num_neighbors=[3, 2, 1],
     input_nodes=test_idx,
     batch_size=batch_size,
     shuffle=True,
