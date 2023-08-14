@@ -118,7 +118,7 @@ class DistLoader():  # , RPCMixin):
             assert self.rpc_timeout > 0
 
         self.device = device
-        self.batch_size = kwargs.get('batch_size', 64)
+        self.batch_size = kwargs.get('bs', 64)
         self.num_workers = kwargs.get('num_workers', 0)
 
         self.pid = mp.current_process().pid
@@ -191,7 +191,7 @@ class DistLoader():  # , RPCMixin):
             data.edge = out.edge
             data.node = out.node
             data.batch = out.batch
-            data.batch_size = out.metadata['batch_size']
+            data.batch_size = out.metadata['bs']
 
             if 'edge_label_index' in out.metadata:
                 # binary negative sampling
@@ -212,14 +212,6 @@ class DistLoader():  # , RPCMixin):
                 pass
 
         elif isinstance(out, HeteroSamplerOutput):
-            # TODO: Refactor hetero
-          #   def to_hetero_data(
-          #   hetero_sampler_out: HeteroSamplerOutput,
-          #   batch_label_dict: Optional[Dict[NodeType, torch.Tensor]] = None,
-          #   node_feat_dict: Optional[Dict[NodeType, torch.Tensor]] = None,
-          #   edge_feat_dict: Optional[Dict[EdgeType, torch.Tensor]] = None,
-          #   **kwargs
-          # ) -> HeteroData:
             node_dict, row_dict, col_dict, edge_dict = {}, {}, {}, {}
             nfeat_dict, efeat_dict = {}, {}
 

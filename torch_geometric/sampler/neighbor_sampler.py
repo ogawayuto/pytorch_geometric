@@ -198,7 +198,6 @@ class NeighborSampler(BaseSampler):
         self._disjoint = disjoint
 
 
-
     def sample_one_hop(
         self,
         srcs: Tensor,
@@ -207,8 +206,7 @@ class NeighborSampler(BaseSampler):
         batch: OptTensor = None,
         edge_type: EdgeType = None
       ) -> Union[SamplerOutput, HeteroSamplerOutput]:
-    
-        # Homo
+
         if not self.is_hetero:
             seed = srcs
             # TODO (matthias) `return_edge_id` if edge features present
@@ -244,6 +242,7 @@ class NeighborSampler(BaseSampler):
                 batch=batch,
                 metadata=(cumm_sum_nbrs_per_node)
             )
+
         else:
             colptrs = list(self.colptr_dict.values())
             dtype = colptrs[0].dtype if len(colptrs) > 0 else torch.int64
@@ -294,7 +293,6 @@ class NeighborSampler(BaseSampler):
         self,
         inputs: NodeSamplerInput,
     ) -> Union[SamplerOutput, HeteroSamplerOutput]:
-        print(f"------  neighborSampler:  sample_from_nodes -------")
         return node_sample(inputs, self._sample)
 
     # Edge-based sampling #####################################################
