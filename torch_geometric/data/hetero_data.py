@@ -18,7 +18,6 @@ from torch_geometric.typing import (
     EdgeTensorType,
     EdgeType,
     FeatureTensorType,
-    NodeOrEdgeType,
     NodeType,
     QueryType,
     SparseTensor,
@@ -30,6 +29,7 @@ from torch_geometric.utils import (
     mask_select,
 )
 
+NodeOrEdgeType = Union[NodeType, EdgeType]
 NodeOrEdgeStorage = Union[NodeStorage, EdgeStorage]
 
 
