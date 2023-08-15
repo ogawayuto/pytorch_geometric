@@ -114,7 +114,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   )
 
   # Create distributed neighbor loader for training
-  train_idx = ('author', train_idx.split(train_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
+  train_idx = ('paper', train_idx.split(train_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
   
   num_workers=0
   train_loader = pyg_dist.DistNeighborLoader(
@@ -137,7 +137,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
 
   print(f"----------- 333 ------------- ")
   # Create distributed neighbor loader for testing.
-  test_idx = ('author', test_idx.split(test_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
+  test_idx = ('paper', test_idx.split(test_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
   test_loader = pyg_dist.DistNeighborLoader(
     data=partition_data,
     #data=dataset,

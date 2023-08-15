@@ -201,90 +201,48 @@ class NeighborSampler(BaseSampler):
     def sample_one_hop(
         self,
         srcs: Tensor,
-        one_hop_num: Union[int, Dict[EdgeType, List[int]]],
-        seed_time: Optional[Union[Tensor, Dict[NodeType, Tensor]]] = None,
+        one_hop_num: int,
+        seed_time: Optional[Tensor] = None,
         batch: OptTensor = None,
         edge_type: EdgeType = None
       ) -> Union[SamplerOutput, HeteroSamplerOutput]:
+        rel_type = '__'.join(edge_type) if self.is_hetero else None
+        colptr = self.colptr if not self.is_hetero else self.colptr_dict[rel_type]
+        row = self.row if not self.is_hetero else self.row_dict[rel_type]
+        seed = srcs
 
-        if not self.is_hetero:
-            seed = srcs
-            # TODO (matthias) `return_edge_id` if edge features present
-            # TODO (matthias) Ideally, `seed` inherits dtype from `colptr`
-            out = torch.ops.pyg.neighbor_sample(
-                self.colptr,
-                self.row,
-                seed.to(self.colptr.dtype),  # seed
-                [one_hop_num],
-                self.node_time,
-                seed_time,
-                batch,
-                True, # csc
-                self.replace,
-                self.subgraph_type != SubgraphType.induced,
-                self.disjoint,
-                self.temporal_strategy,
-                True, # return_edge_id
-                True, # distributed
-            )
-            row, col, node, edge, batch = out[:4] + (None, )
+        out = torch.ops.pyg.neighbor_sample(
+            colptr,
+            row,
+            seed.to(colptr.dtype),  # seed
+            [one_hop_num],
+            self.node_time,
+            seed_time,
+            batch,
+            True, # csc
+            self.replace,
+            self.subgraph_type != SubgraphType.induced,
+            self.disjoint,
+            self.temporal_strategy,
+            True, # return_edge_id
+            True, # distributed
+        )
+        _, _, node, edge, batch = out[:4] + (None, )
 
-            cumm_sum_nbrs_per_node = out[6]
+        cumm_sum_nbrs_per_node = out[6]
     
-            if self.disjoint:
-                batch, node = node.t().contiguous()
+        if self.disjoint:
+            batch, node = node.t().contiguous()
 
-            return SamplerOutput(
-                node=node,
-                row=None,
-                col=None,
-                edge=edge,
-                batch=batch,
-                metadata=(cumm_sum_nbrs_per_node)
-            )
+        return SamplerOutput(
+            node=node,
+            row=None,
+            col=None,
+            edge=edge,
+            batch=batch,
+            metadata=(cumm_sum_nbrs_per_node)
+        )
 
-        else:
-            colptrs = list(self.colptr_dict.values())
-            dtype = colptrs[0].dtype if len(colptrs) > 0 else torch.int64
-            seed = {edge_type[2]: srcs.to(dtype)} # if csc
-            one_hop_num_dict = remap_keys(one_hop_num, self.to_rel_type)
-            node_types = [edge_type[2], edge_type[0]] # if csc
-
-            out = torch.ops.pyg.hetero_neighbor_sample(
-                node_types,
-                [edge_type],
-                self.colptr_dict,
-                self.row_dict,
-                seed,
-                one_hop_num_dict,
-                self.node_time,
-                seed_time,
-                True, # csc
-                self.replace,
-                self.subgraph_type != SubgraphType.induced,
-                self.disjoint,
-                self.temporal_strategy,
-                True, # return_edge_id
-                True, # distributed
-            )
-            row, col, node, edge, batch = out[:4] + (None, )
-
-            cumm_sum_nbrs_per_node_dict = out[6]
-
-            if self.disjoint:
-                node = {k: v.t().contiguous() for k, v in node.items()}
-                batch = {k: v[0] for k, v in node.items()}
-                node = {k: v[1] for k, v in node.items()}
-
-            return HeteroSamplerOutput(
-                node=node,
-                row=None,
-                col=None,
-                edge=remap_keys(edge, self.to_edge_type),
-                batch=batch,
-                metadata=(cumm_sum_nbrs_per_node_dict)
-            )
-        
 
     # Node-based sampling #####################################################
 
