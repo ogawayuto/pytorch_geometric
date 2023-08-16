@@ -733,19 +733,21 @@ class DistNeighborSampler():
     #print(f"--------YYY.0   --- partition_ids={partition_ids}, cumm_sampled_nbrs_per_node={cumm_sampled_nbrs_per_node} ")
 
     for p_id in partition_ids:
-
-        #print(f"----------YYY.1   p_id={p_id} ")
-        if len(cumm_sampled_nbrs_per_node[p_id]) < 2:
+      #print(f"----------YYY.1   p_id={p_id} cumm_sampled_nbrs_per_node={cumm_sampled_nbrs_per_node[p_id]} ")
+        if cumm_sampled_nbrs_per_node[p_id] is None:
           continue
-        start = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
-        p_counters[p_id] += 1
-        end = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
+        elif len(cumm_sampled_nbrs_per_node[p_id]) < 2:
+          continue
+        else:
+          start = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
+          p_counters[p_id] += 1
+          end = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
 
-        node_with_dupl = torch.cat([node_with_dupl, results[p_id].output.node[start: end]])
-        edge = torch.cat([edge, results[p_id].output.edge[start: end]]) if self.with_edge else None
-        batch = torch.cat([batch, results[p_id].output.batch[start: end]]) if self.disjoint else None
+          node_with_dupl = torch.cat([node_with_dupl, results[p_id].output.node[start: end]])
+          edge = torch.cat([edge, results[p_id].output.edge[start: end]]) if self.with_edge else None
+          batch = torch.cat([batch, results[p_id].output.batch[start: end]]) if self.disjoint else None
 
-        sampled_nbrs_per_node += [end - start]
+          sampled_nbrs_per_node += [end - start]
     
     #print(f"--------YYY.5   --- sampled_nbrs_per_node={sampled_nbrs_per_node}, node_with_dupl={node_with_dupl} ")
     #print(f"------77777.3------  merge_results --------- ")
@@ -944,18 +946,18 @@ class DistNeighborSampler():
       # Collect node features.
       if self.dist_node_feature is not None:
         #print(f"------- 777.3---- DistNSampler: _colloate_fn()   dist_node_feature.async_get(),   output.node={output.node}, self.dist_node_feature={self.dist_node_feature}, self.dist_edge_feature={self.dist_edge_feature} -------")
-        fut = self.dist_node_feature.lookup_features(is_node_feat=True, index=output.node)
+        fut = self.dist_node_feature.lookup_features(is_node_feat=True, ids=output.node)
         #print(f"Sampler PID-{mp.current_process().pid} 1: async_get returned {fut}")
         nfeats = await wrap_torch_future(fut) #torch.Tensor([])
         #print(f"Sampler PID-{mp.current_process().pid} 2: wrap_torch_feature returned {nfeats}")
         #result_map['nfeats'] = nfeats
         output.metadata['nfeats'] = nfeats.to(torch.device('cpu'))
-        output.edge=torch.empty(0)
+        #output.edge=torch.empty(0)
 
       # Collect edge features.
       if self.dist_edge_feature is not None:
         eids = result_map['eids']
-        fut = self.dist_edge_feature.lookup_features(is_node_feat=False, index=eids)
+        fut = self.dist_edge_feature.lookup_features(is_node_feat=False, ids=eids)
         efeats = await wrap_torch_future(fut)
         output.metadata['efeats'] = efeats
       else:
