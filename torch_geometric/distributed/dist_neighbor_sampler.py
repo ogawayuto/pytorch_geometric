@@ -28,6 +28,7 @@ from torch_geometric.distributed import (
     LocalFeatureStore,
     LocalGraphStore
     )
+from .pyg_messagequeue import PyGMessageQueue
 
 #from .dist_dataset import DistDataset
 #from .dist_feature import DistFeature
@@ -178,6 +179,7 @@ class DistNeighborSampler():
                current_ctx: DistContext,
                rpc_worker_names: Dict[DistRole, List[str]],
                data: Tuple[LocalGraphStore, LocalFeatureStore],
+               #channel: PyGMessageQueue,
                channel: mp.Queue(),
                num_neighbors: Optional[NumNeighbors] = None,
                replace: bool = False,
@@ -728,7 +730,11 @@ class DistNeighborSampler():
     batch = torch.empty(0, dtype=torch.int64) if self.disjoint else None
     sampled_nbrs_per_node = []
 
+    #print(f"--------YYY.0   --- partition_ids={partition_ids}, cumm_sampled_nbrs_per_node={cumm_sampled_nbrs_per_node} ")
+
     for p_id in partition_ids:
+
+        #print(f"----------YYY.1   p_id={p_id} ")
         if len(cumm_sampled_nbrs_per_node[p_id]) < 2:
           continue
         start = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
@@ -740,7 +746,9 @@ class DistNeighborSampler():
         batch = torch.cat([batch, results[p_id].output.batch[start: end]]) if self.disjoint else None
 
         sampled_nbrs_per_node += [end - start]
-
+    
+    #print(f"--------YYY.5   --- sampled_nbrs_per_node={sampled_nbrs_per_node}, node_with_dupl={node_with_dupl} ")
+    #print(f"------77777.3------  merge_results --------- ")
     return SamplerOutput(
       node_with_dupl,
       None,
@@ -771,24 +779,37 @@ class DistNeighborSampler():
     """
     device = torch.device(type='cpu')
 
+    if self.dist_graph.partition_idx==0:
+        COLOR = '\33[32m'
+    else:
+        COLOR = '\33[37m'
+    CEND = '\033[0m'
+
+    print(COLOR + f"\n\n\n\n XXX.0--PID-{mp.current_process().pid}---- DistNSampler: async _sample_one_hop(), one_hop_num={one_hop_num}, pidx={self.dist_graph.partition_idx}, srcs.size(0)={srcs.size(0)}, srcs={srcs}, batch={batch}, seed_time={seed_time} ------"+ CEND)
+
     srcs = srcs.to(device) # all src nodes
     batch = batch.to(device) if batch is not None else None
     seed_time = seed_time.to(device) if seed_time is not None else None
 
+    
     nodes = torch.arange(srcs.size(0), dtype=torch.long, device=device)
     src_ntype = src_etype[0] if src_etype is not None else None
     
     partition_ids = self.dist_graph.get_partition_ids_from_nids(srcs, src_ntype)
     partition_ids = partition_ids.to(self.device)
 
+    #print(COLOR + f"\n\n\n\n COLOR + XXX.1--PID-{mp.current_process().pid}---- DistNSampler: async _sample_one_hop(), one_hop_num={one_hop_num}, pidx={self.dist_graph.partition_idx}, partition_ids={partition_ids} ------"+ CEND)
+    
     partition_results: List[PartialNeighborOutput] = [None] * self.dist_graph.meta['num_parts']
     remote_nodes: List[torch.Tensor] = []
     futs: List[torch.futures.Future] = []
 
+
+    #print(f"\n\n\n-------- DistNSample -------------------------------------\n\n\n")
+
     for i in range(self.dist_graph.num_partitions):
       p_id = (
         (self.dist_graph.partition_idx + i) % self.dist_graph.num_partitions
-        #(self.data.partition_idx + i) % self.data.num_partitions
       )
       p_mask = (partition_ids == p_id)
       p_srcs = torch.masked_select(srcs, p_mask)
@@ -797,26 +818,44 @@ class DistNeighborSampler():
 
       if p_srcs.shape[0] > 0:
         p_nodes = torch.masked_select(nodes, p_mask)
+        if remote_nodes is None:
+          print("-----11--------#########################-------- remote_nodes is None")
+        if len(p_nodes) == 0:
+          print("-----22--------#########################-------- remote_nodes is None")
+
         if p_id == self.dist_graph.partition_idx:
-          
+      
+          print(COLOR + f"----000--PID-{mp.current_process().pid}--one_hop_num={one_hop_num}-----, _sample_one_hop(): Node{self.dist_graph.partition_idx}-LOCAL---------, pidx={self.dist_graph.partition_idx}, p_id={p_id}, p_nodes.shape={p_nodes.shape}, p_nodes={p_nodes} ------" + CEND)
           p_nbr_out = self._sampler.sample_one_hop(p_srcs, one_hop_num, p_seed_time, p_batch, src_etype)
+          print(COLOR + f"----000.2--PID-{mp.current_process().pid}--one_hop_num={one_hop_num}----- _sample_one_hop(): Node{self.dist_graph.partition_idx}-LOCAL---------, pidx={self.dist_graph.partition_idx}, p_nbr_out={p_nbr_out}, node.size={p_nbr_out.node.size()}, edge.size=={p_nbr_out.edge.size()}, meta_len ={len(p_nbr_out.metadata)}----\n\n"+ CEND)
           partition_results.pop(p_id)
           partition_results.insert(p_id, PartialNeighborOutput(p_nodes, p_nbr_out))
         else:
+          print(COLOR + f"----111--PID-{mp.current_process().pid}--one_hop_num={one_hop_num}----- _sample_one_hop(): Node{self.dist_graph.partition_idx}- REMOTE --------, pidx={self.dist_graph.partition_idx}, p_id={p_id}, p_nodes.shape={p_nodes.shape}, p_nodes={p_nodes}  ------" + CEND)
           remote_nodes.append(p_nodes)
           to_worker = self.rpc_router.get_to_worker(p_id)
-          futs.append(rpc_async(to_worker,
+          
+          #print(f"----111.1---- DistNSampler: async _sample_one_hop(), to_worker={to_worker} ------")
+          temp_futs = rpc_async(to_worker,
                                         self.rpc_sample_callee_id,
-                                        args=(p_srcs.cpu(), one_hop_num, p_seed_time, p_batch.cpu() if p_batch is not None else None, src_etype)))
-    
+                                        args=(p_srcs.cpu(), one_hop_num, p_seed_time, p_batch.cpu() if p_batch is not None else None, src_etype))
+          print(COLOR + f"----111.2--PID-{mp.current_process().pid}--one_hop_num={one_hop_num}----- _sample_one_hop(): Node{self.dist_graph.partition_idx}- REMOTE --------, pidx={self.dist_graph.partition_idx}, temp_futs={temp_futs.wait()}, node.size={temp_futs.wait().node.size()}, edge.size=={temp_futs.wait().edge.size()}, meta_len ={len(temp_futs.wait().metadata)} ------\n\n"+ CEND)
+          futs.append(temp_futs)
+
+    #print(f"-----333--- DistNSampler: async _sample_one_hop() without remote sampling results -------")
     # Without remote sampling results.
+    if remote_nodes is None:
+      print("------3333333333-------#########################-------- remote_nodes is None")
+
     if len(remote_nodes) == 0:
-      print("NO REMOTE NEIGHBORS")
-      return partition_results[self.dist_graph.partition_idx].output
+      print(COLOR + f"--------NO REMOTE NEIGHBORS !!!!!!! --PID-{mp.current_process().pid}----one_hop_num={one_hop_num}, pidx={self.dist_graph.partition_idx}, partition_results ={partition_results}---  "+ CEND)
+      #print(f"--------NO REMOTE NEIGHBORS !!!!!!! ----one_hop_num={one_hop_num}, pidx={self.dist_graph.partition_idx}, partition_results[self.dist_graph.partition_idx].output ={partition_results[self.dist_graph.partition_idx].output}---  ")
+      return self.merge_results(partition_ids, partition_results)
+      #return partition_results[self.dist_graph.partition_idx].output
     # With remote sampling results.
     res_fut_list = await wrap_torch_future(torch.futures.collect_all(futs))
     for i, res_fut in enumerate(res_fut_list):
-      #*print(f"-------- DistNSampler: async _sample_one_hop() res_fut={res_fut.wait()} -------")
+      #print(f"---444----- DistNSampler: async _sample_one_hop() res_fut={res_fut.wait()} -------")
       
       partition_results.pop(p_id)
       partition_results.insert(p_id,
@@ -826,8 +865,9 @@ class DistNeighborSampler():
         )
       )
     
-    #*print(f"-------- DistNSampler: async _sample_one_hop() before stitching -----------------  partition_results={partition_results}-------")
-    #*print("\n\n\n\n")
+    print(COLOR + f"\n\n-------55555--PID-{mp.current_process().pid}---- one_hop_num={one_hop_num}, pidx={self.dist_graph.partition_idx}, -- DistNSampler: _sample_one_hop() before stitching -----------------  partition_results={partition_results}-------"+ CEND)
+    #print(f"-------- DistNSampler: async _sample_one_hop() before stitching -----------------  partition_results={partition_results[0].output.node.size()}, {partition_results[1].output.node.size()}-------")
+    #print("\n\n\n\n")
     return self.merge_results(partition_ids, partition_results)
 
   async def _colloate_fn(
@@ -904,7 +944,7 @@ class DistNeighborSampler():
       # Collect node features.
       if self.dist_node_feature is not None:
         #print(f"------- 777.3---- DistNSampler: _colloate_fn()   dist_node_feature.async_get(),   output.node={output.node}, self.dist_node_feature={self.dist_node_feature}, self.dist_edge_feature={self.dist_edge_feature} -------")
-        fut = self.dist_node_feature.lookup_features(is_node_feat=True, ids=output.node)
+        fut = self.dist_node_feature.lookup_features(is_node_feat=True, index=output.node)
         #print(f"Sampler PID-{mp.current_process().pid} 1: async_get returned {fut}")
         nfeats = await wrap_torch_future(fut) #torch.Tensor([])
         #print(f"Sampler PID-{mp.current_process().pid} 2: wrap_torch_feature returned {nfeats}")
@@ -915,7 +955,7 @@ class DistNeighborSampler():
       # Collect edge features.
       if self.dist_edge_feature is not None:
         eids = result_map['eids']
-        fut = self.dist_edge_feature.lookup_features(is_node_feat=False, ids=eids)
+        fut = self.dist_edge_feature.lookup_features(is_node_feat=False, index=eids)
         efeats = await wrap_torch_future(fut)
         output.metadata['efeats'] = efeats
       else:
