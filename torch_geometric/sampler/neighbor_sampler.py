@@ -205,7 +205,7 @@ class NeighborSampler(BaseSampler):
         seed_time: Optional[Tensor] = None,
         batch: OptTensor = None,
         edge_type: EdgeType = None
-      ) -> Union[SamplerOutput, HeteroSamplerOutput]:
+      ) -> SamplerOutput:
         rel_type = '__'.join(edge_type) if self.is_hetero else None
         colptr = self.colptr if not self.is_hetero else self.colptr_dict[rel_type]
         row = self.row if not self.is_hetero else self.row_dict[rel_type]
