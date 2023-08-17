@@ -340,11 +340,14 @@ class DistNeighborSampler():
         sampled_nbrs_per_node_dict.update({ntype: []})
         num_sampled_nodes_dict.update({ntype: [0]})
       
+      srcs_dict[input_type] = seed
+      edge_types = []
       for etype in self._sampler.edge_types:
         edge_dict.update({etype: torch.empty(0, dtype=torch.int64)})
         num_sampled_edges_dict.update({etype: []})
+        if srcs_dict.get(etype[2], None).numel():
+          edge_types.append(etype)
 
-      srcs_dict[input_type] = seed
       node_dict[input_type] = OrderedSet(seed)
       num_sampled_nodes_dict[input_type].append(seed.numel())
 
@@ -353,9 +356,9 @@ class DistNeighborSampler():
         for etype in self._sampler.edge_types:
           srcs = srcs_dict.get(etype[2], None)
           one_hop_num = self.num_neighbors[i] if isinstance(self.num_neighbors, List) else self.num_neighbors[etype][i]
-          if srcs.numel():
-            task_dict[etype] = self.event_loop._loop.create_task(
-              self._sample_one_hop(srcs, one_hop_num, None, None, etype)) # add seed_time and src_batch
+          # if srcs.numel():
+          task_dict[etype] = self.event_loop._loop.create_task(
+            self._sample_one_hop(srcs, one_hop_num, None, None, etype)) # add seed_time and src_batch
         for etype, task in task_dict.items():
           out: HeteroSamplerOutput = await task
 
@@ -379,7 +382,7 @@ class DistNeighborSampler():
           num_sampled_edges_dict[etype].append(len(out.node))
           sampled_nbrs_per_node_dict[dst] += out.metadata
 
-      row_dict, col_dict = torch.ops.pyg.get_hetero_adj_matrix(self._sampler.node_types, self._sampler.edge_types, {input_type: seed}, node_with_dupl_dict, sampled_nbrs_per_node_dict, self._sampler.num_nodes, self.disjoint)
+      row_dict, col_dict = torch.ops.pyg.get_hetero_adj_matrix(self._sampler.node_types, edge_types, {input_type: seed}, node_with_dupl_dict, sampled_nbrs_per_node_dict, self._sampler.num_nodes, self.disjoint)
 
       sample_output = HeteroSamplerOutput(
         node=node_dict,
@@ -519,25 +522,19 @@ class DistNeighborSampler():
 
   def form_local_output(
     self,
-    results: List[Union[SamplerOutput, HeteroSamplerOutput]],
-    edge_type: EdgeType = None
-  ) -> Union[SamplerOutput, HeteroSamplerOutput]:
+    results: List[SamplerOutput],
+  ) -> SamplerOutput:
     p_id = self.dist_graph.partition_idx
 
-    dst = edge_type[0] if self.is_hetero else None # if csc
-    cumm_sampled_nbrs_per_node = results[p_id].metadata if not self.is_hetero else results[p_id].metadata[dst]
+    cumm_sampled_nbrs_per_node = results[p_id].metadata
 
-    if self.is_hetero and edge_type[0] != edge_type[2]:
-      start = np.array(cumm_sampled_nbrs_per_node[1:][dst])
-      end = np.array(cumm_sampled_nbrs_per_node[0:-1][dst])
-    else:
-      # do not include seed
-      start = np.array(cumm_sampled_nbrs_per_node[2:])
-      end = np.array(cumm_sampled_nbrs_per_node[1:-1])
+    # do not include seed
+    start = np.array(cumm_sampled_nbrs_per_node[1:])
+    end = np.array(cumm_sampled_nbrs_per_node[0:-1])
 
     sampled_nbrs_per_node = list(np.subtract(start, end))
 
-    results[p_id].metadata = (sampled_nbrs_per_node) if not self.is_hetero else {dst: sampled_nbrs_per_node}
+    results[p_id].metadata = (sampled_nbrs_per_node)
 
     return results[p_id]
     
@@ -666,7 +663,7 @@ class DistNeighborSampler():
 
     # Only local nodes were sampled
     if local_only:
-      return self.form_local_output(p_outputs, edge_type)
+      return self.form_local_output(p_outputs)
     # Sampled remote nodes
     res_fut_list = await wrap_torch_future(torch.futures.collect_all(futs))
     for i, res_fut in enumerate(res_fut_list):
