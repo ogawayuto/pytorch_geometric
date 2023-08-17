@@ -8,8 +8,8 @@ from torch_geometric.loader.base import DataLoaderIterator
 from torch_geometric.loader.mixin import AffinityMixin
 from torch_geometric.loader.utils import (
     filter_custom_store,
-    filter_hetero_custom_store,
     filter_data,
+    filter_hetero_custom_store,
     filter_hetero_data,
     get_input_nodes,
     infer_filter_per_worker,
@@ -117,10 +117,8 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
         )
 
         iterator = range(input_nodes.size(0))
-        super().__init__(
-            iterator, collate_fn=self.collate_fn,
-            worker_init_fn=self.worker_init_fn
-            if self.worker_init_fn else None, **kwargs)
+        super().__init__(iterator, collate_fn=self.collate_fn,
+                         worker_init_fn=worker_init_fn, **kwargs)
 
     def __call__(
         self,
@@ -142,7 +140,7 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
             out = self.filter_fn(out)
 
         return out
-      
+
     def filter_fn(
         self,
         out: Union[SamplerOutput, HeteroSamplerOutput],
@@ -156,8 +154,9 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
 
         if isinstance(out, SamplerOutput):
             if isinstance(self.data, Data):
-                 data = filter_data(self.data, out.node, out.row, out.col,
-                                out.edge, self.node_sampler.edge_permutation)
+                data = filter_data(self.data, out.node, out.row, out.col,
+                                   out.edge,
+                                   self.node_sampler.edge_permutation)
 
             if 'n_id' not in data:
                 data.n_id = out.node
