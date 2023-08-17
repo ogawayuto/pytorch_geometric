@@ -43,7 +43,7 @@ class DistNeighborLoader(NodeLoader, DistLoader):
                  is_sorted: bool = False,
                  directed: bool = True,  # Deprecated.
                  with_edge: bool = False,
-                 concurrency: int = 0,
+                 concurrency: int = 1,
                  collect_features: bool = True,
                  filter_per_worker: Optional[bool] = False,
                  async_sampling: bool = True,
@@ -53,12 +53,14 @@ class DistNeighborLoader(NodeLoader, DistLoader):
 
         assert (isinstance(data[0], FeatureStore) and (
             data[1], GraphStore)), "Data needs to be Tuple[LocalFeatureStore, LocalGraphStore]"
-
+        
+        assert concurrency >= 0, "concurrency must be greater than 1"
+        
         if input_time is not None and time_attr is None:
             raise ValueError("Received conflicting 'input_time' and "
                              "'time_attr' arguments: 'input_time' is set "
                              "while 'time_attr' is not set.")
-
+        
         channel = torch.multiprocessing.Queue() if async_sampling else None
 
         if neighbor_sampler is None:
