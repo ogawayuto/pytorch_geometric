@@ -128,7 +128,7 @@ class DistNeighborLoader(NodeLoader, DistLoader):
 
             data.edge = out.edge
             data.node = out.node
-            data.batch = out.batch
+            data.batch = out.batch 
             data.num_sampled_nodes = out.num_sampled_nodes
             data.num_sampled_edges = out.num_sampled_edges
 

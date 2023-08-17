@@ -882,8 +882,7 @@ class DistNeighborSampler():
     and put them into a sample message.
     """
     result_map = {}
-    # if isinstance(output.metadata, dict):
-      #scan kv and add metadata
+
     if isinstance(output.metadata, dict):
         input_type = output.metadata.get('input_type', '')
     else:
