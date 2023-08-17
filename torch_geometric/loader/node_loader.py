@@ -108,7 +108,8 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
         self.transform_sampler_output = transform_sampler_output
         self.filter_per_worker = filter_per_worker
         self.custom_cls = custom_cls
-
+        self.worker_init_fn = worker_init_fn
+        
         self.input_data = NodeSamplerInput(
             input_id=input_id,
             node=input_nodes,
@@ -120,7 +121,7 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
         super().__init__(
             iterator,
             collate_fn=self.collate_fn,
-            worker_init_fn=worker_init_fn,
+            worker_init_fn=self.worker_init_fn,
             **kwargs)
 
     def __call__(
@@ -157,9 +158,14 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
 
         if isinstance(out, SamplerOutput):
             if isinstance(self.data, Data):
-                 data = filter_data(self.data, out.node, out.row, out.col,
+                data = filter_data(self.data, out.node, out.row, out.col,
                                 out.edge, self.node_sampler.edge_permutation)
-
+            else: # Tuple[FeatureStore, GraphStore]
+                data = Data(x=out.metadata[2],
+                            y=out.metadata[3],
+                            edge_index=torch.stack([out.row, out.col]),
+                            edge_attr=out.metadata[4],
+                            )
             if 'n_id' not in data:
                 data.n_id = out.node
             if out.edge is not None and 'e_id' not in data:
@@ -168,16 +174,21 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
             data.batch = out.batch
             data.num_sampled_nodes = out.num_sampled_nodes
             data.num_sampled_edges = out.num_sampled_edges
-
+            
             data.input_id = out.metadata[0]
             data.seed_time = out.metadata[1]
             data.batch_size = out.metadata[0].size(0)
+
 
         elif isinstance(out, HeteroSamplerOutput):
             if isinstance(self.data, HeteroData):
                 data = filter_hetero_data(self.data, out.node, out.row,
                                           out.col, out.edge,
                                           self.node_sampler.edge_permutation)
+            else:  # Tuple[FeatureStore, GraphStore]
+                data = filter_custom_store(*self.data, out.node, out.row,
+                                           out.col, out.edge, self.custom_cls)
+
             for key, node in out.node.items():
                 if 'n_id' not in data[key]:
                     data[key].n_id = node

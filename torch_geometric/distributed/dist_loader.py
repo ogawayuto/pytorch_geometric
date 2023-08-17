@@ -1,12 +1,13 @@
 import atexit
+import logging
 import torch
 import torch.multiprocessing as mp
 import os
 from typing import Optional, Dict, Union, List
+from torch_geometric.sampler import SamplerOutput, HeteroSamplerOutput
 from .rpc import init_rpc, global_barrier
 from .dist_neighbor_sampler import DistNeighborSampler, close_sampler
 from .dist_context import DistContext, DistRole
-
 
 class DistLoader():
 
@@ -64,7 +65,14 @@ class DistLoader():
 
         if self.num_workers == 0:
             self.worker_init_fn(0)
-
+            
+    def channel_get(self, out) -> Union[SamplerOutput, HeteroSamplerOutput]:
+        if self.channel:
+            out = self.channel.get()
+            logging.debug(
+                f'{repr(self)} retrieved Sampler result from PyG MSG channel')
+        return out
+            
     def worker_init_fn(self, worker_id):
         try:
             num_sampler_proc = (
@@ -76,10 +84,9 @@ class DistLoader():
                 num_sampler_proc, global_rank=self.current_ctx.rank *
                 num_sampler_proc + worker_id, group_name='mp_sampling_worker')
 
-            self.sampler_rpc_worker_names = {}
             init_rpc(
                 current_ctx=self.current_ctx_worker,
-                rpc_worker_names=self.sampler_rpc_worker_names,
+                rpc_worker_names={},
                 master_addr=self.master_addr,
                 master_port=self.master_port,
                 num_rpc_threads=self.num_rpc_threads,
@@ -91,6 +98,7 @@ class DistLoader():
             atexit.register(close_sampler, worker_id, self.neighbor_sampler)
             # wait for all workers to init
             global_barrier()
+            print(f" {repr(self)} EXECUTED WORKER INIT FN")
 
         except RuntimeError:
             raise RuntimeError(

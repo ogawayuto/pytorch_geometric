@@ -84,27 +84,20 @@ def homo_dist_neighbor_loader(
 
     assert 'DistNeighborLoader()' in str(loader)
     assert str(mp.current_process().pid) in str(loader)
-
-    for value in loader.sampler_rpc_worker_names.values():
-        if loader.num_workers == 0:
-            assert len(value) == 2
-        else:
-            assert len(value) == 2 * loader.num_workers
-        
     assert isinstance(loader.neighbor_sampler, DistNeighborSampler)
-        
-    for batch in enumerate(loader):
+
+    for batch in loader:
         assert isinstance(batch, Data)
         assert batch.x.device == device
         assert batch.x.size(0) >= 0
-        #assert batch.n_id.size() == (batch.num_nodes, )
-        #assert batch.input_id.numel() == batch.batch_size == 10
-        #assert batch.x.min() >= 0 and batch.x.max() < 100
+        assert batch.n_id.size() == (batch.num_nodes, )
+        assert batch.input_id.numel() == batch.batch_size == 10
         assert batch.edge_index.device == device
         assert batch.edge_index.min() >= 0
         assert batch.edge_index.max() < batch.num_nodes
-        #assert batch.edge_attr.device == device
-        #assert batch.edge_attr.size(0) == batch.edge_index.size(1)
+        # assert batch.edge_attr.device == device
+        # assert batch.edge_attr.size(0) == batch.edge_index.size(1)
+        
 
 @onlyLinux
 @pytest.mark.skipif(not WITH_METIS, reason='Not compiled with METIS support')
