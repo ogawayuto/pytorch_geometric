@@ -88,6 +88,7 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
         transform_sampler_output: Optional[Callable] = None,
         filter_per_worker: Optional[bool] = None,
         custom_cls: Optional[HeteroData] = None,
+        worker_init_fn: Optional[Callable] = None,
         input_id: OptTensor = None,
         **kwargs,
     ):
@@ -119,7 +120,7 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
         super().__init__(
             iterator,
             collate_fn=self.collate_fn,
-            worker_init_fn=self.worker_init_fn if self.worker_init_fn else None,
+            worker_init_fn=worker_init_fn,
             **kwargs)
 
     def __call__(

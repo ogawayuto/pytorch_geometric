@@ -113,6 +113,7 @@ class DistLinkNeighborLoader(LinkLoader, DistLoader):
                             transform=transform,
                             transform_sampler_output=transform_sampler_output,
                             filter_per_worker=filter_per_worker,
+                            worker_init_fn=self.worker_init_fn,
                             **kwargs
                             )
         
