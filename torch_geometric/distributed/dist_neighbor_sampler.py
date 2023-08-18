@@ -556,14 +556,7 @@ class DistNeighborSampler():
       nlabels = {}
       nfeats = {}
       efeats = {}
-      # for ntype, nodes in output.node.items():
-      #   result_map[f'{as_str(ntype)}.ids'] = nodes
-      # for etype, rows in output.row.items():
-      #   etype_str = as_str(etype)
-      #   result_map[f'{etype_str}.rows'] = rows
-      #   result_map[f'{etype_str}.cols'] = output.col[etype]
-      #   result_map[f'{etype_str}.eids'] = output.edge[etype]
-          
+      
       # Collect node labels of input node type.
       if not isinstance(input_type, Tuple):
         node_labels = self.dist_graph.labels
@@ -573,20 +566,18 @@ class DistNeighborSampler():
       # Collect node features.
       
       for ntype in output.node.keys():
-        #nodes = nodes.to(torch.long)
-        fut = self.dist_feature.lookup_features(is_node_feat=True, ids=output.node[ntype])
+        fut = self.dist_feature.lookup_features(is_node_feat=True, ids=output.node[ntype], input_type=ntype)
         nfeat = await wrap_torch_future(fut)
         nfeat = nfeat.to(torch.device('cpu'))
         nfeats[ntype] = nfeat
         
       # Collect edge features
-      for etype in self.edge_types:
-        eids = result_map.get(f'{as_str(etype)}.eids', None).to(torch.long)
-        if eids is not None:
-          efeats[etype] = self.feature.async_get(eids, etype)
-      for etype, fut in efeats.items():
-        efeats = await wrap_torch_future(fut)
-        result_map[f'{as_str(etype)}.efeats'] = efeats
+      for etype in output.edge.keys():
+        fut = self.dist_feature.lookup_features(is_node_feat=False, ids=output.edge[etype], input_type=etype)
+        efeat = await wrap_torch_future(fut)
+        efeat = efeat.to(torch.device('cpu'))
+        efeats[etype] = efeat
+        
     else:
         # Collect node labels.
         nlabels = self.dist_graph.labels[output.node] if (self.dist_graph.labels is not None) else None
