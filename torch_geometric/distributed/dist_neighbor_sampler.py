@@ -187,8 +187,6 @@ class DistNeighborSampler():
                disjoint: bool = False,
                temporal_strategy: str = 'uniform',
                time_attr: Optional[str] = None,
-               with_edge: bool = True,
-               collect_features: bool = False,
                concurrency: int = 1,
                device: Optional[torch.device] = None,
                **kwargs,
@@ -200,15 +198,12 @@ class DistNeighborSampler():
     self.rpc_worker_names = rpc_worker_names
 
     self.data = data
-    self.graph = data[1]
-    self.feature = data[0]
-    assert isinstance(self.graph, LocalGraphStore), f"Provided data is in incorrect format: self.graph must be `LocalGraphStore`, got {type(self.graph)}"
-    assert isinstance(self.feature, LocalFeatureStore), f"Provided data is in incorrect format: self.graph must be `LocalGraphStore`, got {type(self.feature)}"
+    self.dist_graph = data[1]
+    self.dist_feature = data[0]
+    assert isinstance(self.dist_graph, LocalGraphStore), f"Provided data is in incorrect format: self.dist_graph must be `LocalGraphStore`, got {type(self.dist_graph)}"
+    assert isinstance(self.dist_feature, LocalFeatureStore), f"Provided data is in incorrect format: self.dist_feature must be `LocalFeatureStore`, got {type(self.dist_feature)}"
 
     self.num_neighbors = num_neighbors
-    self.max_input_size = 0
-    self.with_edge = True
-    self.collect_features = collect_features
     self.channel = channel
     self.concurrency = concurrency
     self.device = device
@@ -218,53 +213,43 @@ class DistNeighborSampler():
     self.disjoint = disjoint
     self.temporal_strategy = temporal_strategy
     self.time_attr = time_attr
+    
+    self.with_edge = True
+    self.with_node = True
+
 
 
   def register_sampler_rpc(self):  
     
     partition2workers = rpc_partition_to_workers(
     current_ctx = self.current_ctx,
-    num_partitions=self.graph.num_partitions, #self.data[1],
-    current_partition_idx=self.graph.partition_idx #self.data[2], #.partition_idx
+    num_partitions=self.dist_graph.num_partitions,
+    current_partition_idx=self.dist_graph.partition_idx
     )
     
     self.rpc_router = RPCRouter(partition2workers)
-    self.dist_graph = self.graph
-
-
-    print(f"----////////88888//////////---- self.dist_graph.num_partitions={self.dist_graph.num_partitions}, self.dist_graph.node_pb={self.dist_graph.node_pb}, self.dist_graph.meta={self.dist_graph.meta}    ")
     
-    edge_index = self.graph.get_edge_index(edge_type=None, layout='coo')
-    print(f"----////////88888//////////---- edge_index={edge_index}    ")
-
-    self.dist_node_feature = None
-    self.dist_edge_feature = None
-    if self.collect_features:
-        node_features = self.feature.get_tensor(group_name=None, attr_name='x')
-        print(f"--000000000000.1-- node_features={node_features} ")
+    # collect node\edge features
+    try:
+      node_features = self.dist_feature.get_tensor(group_name=None, attr_name='x')
+      print(f"--000000000000.1-- node_features={node_features} ")
+    except KeyError:
+      self.with_node = False
     
-    if node_features is not None:
-        local_feature=self.feature
-        local_feature.set_rpc_router(self.rpc_router)
+    try:
+      edge_features = self.dist_feature.get_tensor(group_name=None, attr_name='edge_attr')
+      print(f"--000000000000.2-- edge_features={edge_features} ")
+    except KeyError:
+      self.with_edge = False
+
+    if any(node_features, edge_features) is not None:
+        self.dist_feature.set_rpc_router(self.rpc_router)
         
-        self.dist_node_feature = local_feature
-
-    attrs = self.feature.get_all_tensor_attrs()
-    print(f"------------- attrs={attrs}  ")
-
-    edge_features = None #! TODO: Why edge_features always None??
-
-    if self.with_edge and edge_features is not None:
-        self.dist_edge_feature = None
-
     print(f"---- 666.2 -------- register_rpc done    ")
 
 
-    data0 = Data(x= node_features, edge_index=edge_index)
-    print(f"-----------  data0={data0} ")
-
     self._sampler = NeighborSampler(
-      data=(self.dist_node_feature, self.dist_graph),
+      data=(self.dist_feature, self.dist_graph),
       num_neighbors=self.num_neighbors,
       subgraph_type=self.subgraph_type,
       replace=self.replace,
@@ -750,11 +735,11 @@ class DistNeighborSampler():
           result_map[f'{as_str(input_type)}.nlabels'] = \
             node_labels[output.node[input_type]]
       # Collect node features.
-      if self.dist_node_feature is not None:
+      if self.dist_feature is not None:
         nfeat_fut_dict = {}
         for ntype, nodes in output.node.items():
           nodes = nodes.to(torch.long)
-          nfeat_fut_dict[ntype] = self.dist_node_feature.async_get(nodes, ntype)
+          nfeat_fut_dict[ntype] = self.dist_feature.async_get(nodes, ntype)
         for ntype, fut in nfeat_fut_dict.items():
           nfeats = await wrap_torch_future(fut)
           result_map[f'{as_str(ntype)}.nfeats'] = nfeats
@@ -772,20 +757,20 @@ class DistNeighborSampler():
         # Collect node labels.        
         nlabels = self.dist_graph.labels[output.node] if (self.dist_graph.labels is not None) else None
         # Collect node features.
-        if self.dist_node_feature is not None:
-            fut = self.dist_node_feature.lookup_features(is_node_feat=True, ids=output.node)
-            nfeats = await wrap_torch_future(fut) #torch.Tensor([])
-            nfeats = nfeats.to(torch.device('cpu'))
+        if self.with_node:
+          fut = self.dist_feature.lookup_features(is_node_feat=True, ids=output.node)
+          nfeats = await wrap_torch_future(fut) 
+          nfeats = nfeats.to(torch.device('cpu'))
         else:
-            nfeats = None
+          nfeats = None
         # Collect edge features.
-        if self.dist_edge_feature is not None:
-            fut = self.dist_edge_feature.lookup_features(is_node_feat=False, ids=output.edge)
-            efeats = await wrap_torch_future(fut)
-            efeats = efeats.to(torch.device('cpu'))
-        else:
-            efeats = None
-        
+        if self.with_edge and output.edge is not None:
+          fut = self.dist_feature.lookup_features(is_node_feat=False, ids=output.edge)
+          efeats = await wrap_torch_future(fut)
+          efeats = efeats.to(torch.device('cpu'))
+        else: 
+          efeats = None
+
     #print(f"------- 777.4 ----- DistNSampler: _colloate_fn()  return -------")
     output.metadata = (output.metadata[0], output.metadata[1], nfeats, nlabels, efeats)
     return output #result_map
