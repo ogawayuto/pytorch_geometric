@@ -132,7 +132,8 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     async_sampling = True,
     filter_per_worker = False,
     current_ctx=current_ctx,
-    rpc_worker_names=rpc_worker_names
+    rpc_worker_names=rpc_worker_names,
+    disjoint=True
   )
 
   print(f"----------- 333 ------------- ")
@@ -154,7 +155,8 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     async_sampling = True,
     filter_per_worker = False,
     current_ctx=current_ctx,
-    rpc_worker_names=rpc_worker_names
+    rpc_worker_names=rpc_worker_names,
+    disjoint=True
   )
 
   # Define model and optimizer.
