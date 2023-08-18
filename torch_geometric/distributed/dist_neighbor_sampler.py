@@ -237,13 +237,15 @@ class DistNeighborSampler():
       self.with_node = False
     
     try:
-      edge_features = self.dist_feature.get_tensor(group_name=None, attr_name='edge_attr')
+      edge_features = self.dist_feature.get_tensor(group_name=(None,None), attr_name='edge_attr')
       print(f"--000000000000.2-- edge_features={edge_features} ")
     except KeyError:
       self.with_edge = False
 
-    if any(node_features, edge_features) is not None:
+    if any((self.with_node, self.with_edge)):
         self.dist_feature.set_rpc_router(self.rpc_router)
+    else:
+      raise AttributeError("Provided LocalFeatureStore doesn't contain any node\edge features.")
         
     print(f"---- 666.2 -------- register_rpc done    ")
 
