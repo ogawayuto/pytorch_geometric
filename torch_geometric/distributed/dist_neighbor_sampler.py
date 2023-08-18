@@ -561,7 +561,7 @@ class DistNeighborSampler():
       if not isinstance(input_type, Tuple):
         node_labels = self.dist_graph.labels
         if node_labels is not None:
-          nlabels[f'{as_str(input_type)}.nlabels'] = \
+          nlabels[f'{as_str(input_type)}'] = \
             node_labels[output.node[input_type]]
       # Collect node features.
       
