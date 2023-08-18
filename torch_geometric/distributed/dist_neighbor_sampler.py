@@ -345,7 +345,7 @@ class DistNeighborSampler():
 
       row_dict, col_dict = torch.ops.pyg.get_hetero_adj_matrix(node_types, edge_types, {input_type: seed}, node_with_dupl_dict, sampled_nbrs_per_node_dict, self._sampler.num_nodes, self.disjoint)
       
-      edge_dict = remap_keys(edge_dict, {k: '__'.join(k) for k in edge_types})
+      #edge_dict = remap_keys(edge_dict, {k: '__'.join(k) for k in edge_types})
       
       node_dict= {ntype:torch.Tensor(node_dict[ntype]).type(torch.int64) for ntype in node_types}
         
@@ -573,10 +573,13 @@ class DistNeighborSampler():
         
       # Collect edge features
       for etype in output.edge.keys():
-        fut = self.dist_feature.lookup_features(is_node_feat=False, ids=output.edge[etype], input_type=etype)
-        efeat = await wrap_torch_future(fut)
-        efeat = efeat.to(torch.device('cpu'))
-        efeats[etype] = efeat
+        try:
+          fut = self.dist_feature.lookup_features(is_node_feat=False, ids=output.edge[etype], input_type=etype)
+          efeat = await wrap_torch_future(fut)
+          efeat = efeat.to(torch.device('cpu'))
+          efeats[etype] = efeat
+        except KeyError:
+          efeats[etype] = None
         
     else:
         # Collect node labels.
@@ -589,11 +592,11 @@ class DistNeighborSampler():
         else:
           nfeats = None
         # Collect edge features.
-        if output.edge is not None:
+        try:
           fut = self.dist_feature.lookup_features(is_node_feat=False, ids=output.edge)
           efeats = await wrap_torch_future(fut)
           efeats = efeats.to(torch.device('cpu'))
-        else: 
+        except KeyError: 
           efeats = None
 
     #print(f"------- 777.4 ----- DistNSampler: _colloate_fn()  return -------")

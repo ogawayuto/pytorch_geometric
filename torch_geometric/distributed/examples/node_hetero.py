@@ -82,6 +82,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   feature.num_partitions = num_partitions
   feature.partition_idx = partition_idx
   feature.node_feat_pb = node_pb
+  feature.edge_feat_pb = edge_pb
   feature.meta = meta
   
   if node_label_file is not None:
