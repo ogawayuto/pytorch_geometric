@@ -141,10 +141,6 @@ class DistNeighborSampler():
     self.disjoint = disjoint
     self.temporal_strategy = temporal_strategy
     self.time_attr = time_attr
-    
-    self.with_edge = True
-    self.with_node = True
-
 
 
   def register_sampler_rpc(self):  
@@ -156,24 +152,7 @@ class DistNeighborSampler():
     )
     
     self.rpc_router = RPCRouter(partition2workers)
-    
-    # collect node\edge features
-    try:
-      node_features = self.dist_feature.get_tensor(group_name=None, attr_name='x')
-      # print(f"--000000000000.1-- node_features={node_features} ")
-    except KeyError:
-      self.with_node = False
-    
-    try:
-      edge_features = self.dist_feature.get_tensor(group_name=(None,None), attr_name='edge_attr')
-      # print(f"--000000000000.2-- edge_features={edge_features} ")
-    except KeyError:
-      self.with_edge = False
-
-    if any((self.with_node, self.with_edge)):
-        self.dist_feature.set_rpc_router(self.rpc_router)
-    else:
-      raise AttributeError("Provided LocalFeatureStore doesn't contain any node\edge features.")
+    self.dist_feature.set_rpc_router(self.rpc_router)
         
     print(f"---- 666.2 -------- register_rpc done    ")
 
@@ -189,7 +168,6 @@ class DistNeighborSampler():
     )
 
     print("----------- DistNeighborSampler: after NeigborSampler()  ------------- ")
-
 
     # rpc register
     rpc_sample_callee = RpcSamplingCallee(self._sampler, self.device)
@@ -358,7 +336,7 @@ class DistNeighborSampler():
           node_dict[dst].update(node_wo_dupl)
 
           node_with_dupl_dict[dst] = torch.cat([node_with_dupl_dict[dst], out.node])
-          edge_dict[etype] = torch.cat([edge_dict[etype], out.edge]) if self.with_edge else None
+          edge_dict[etype] = torch.cat([edge_dict[etype], out.edge])
           src_batch = out.batch
           batch_dict[dst] = torch.cat([batch_dict[dst], out.batch]) if self.disjoint else None
           num_sampled_nodes_dict[dst].append(len(srcs_dict[dst]))
@@ -371,7 +349,7 @@ class DistNeighborSampler():
         node=node_dict,
         row=row_dict,
         col=col_dict,
-        edge=edge_dict if self.with_edge else None,
+        edge=edge_dict
         batch=batch_dict if self.disjoint else None,
         num_sampled_nodes=num_sampled_nodes_dict,
         num_sampled_edges=num_sampled_edges_dict,
@@ -405,7 +383,7 @@ class DistNeighborSampler():
         node.update(node_wo_dupl)
 
         node_with_dupl = torch.cat([node_with_dupl, out.node])
-        edge = torch.cat([edge, out.edge]) if self.with_edge else None
+        edge = torch.cat([edge, out.edge])
         src_batch = out.batch
         batch = torch.cat([batch, out.batch]) if self.disjoint else None
         num_sampled_nodes.append(len(srcs))
@@ -426,7 +404,7 @@ class DistNeighborSampler():
         node=node,
         row=row,
         col=col,
-        edge=edge if self.with_edge else None,
+        edge=edge,
         batch=batch if self.disjoint else None,
         num_sampled_nodes=num_sampled_nodes,
         num_sampled_edges=num_sampled_edges,
@@ -466,7 +444,7 @@ class DistNeighborSampler():
     partition_ids = partition_ids.tolist()
 
     node_with_dupl = torch.empty(0, dtype=torch.int64)
-    edge = torch.empty(0, dtype=torch.int64) if self.with_edge else None
+    edge = torch.empty(0, dtype=torch.int64)
     batch = torch.empty(0, dtype=torch.int64) if self.disjoint else None
     sampled_nbrs_per_node = []
 
@@ -481,7 +459,7 @@ class DistNeighborSampler():
       end = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
 
       node_with_dupl = torch.cat([node_with_dupl, outputs[p_id].node[start: end]])
-      edge = torch.cat([edge, outputs[p_id].edge[start: end]]) if self.with_edge else None
+      edge = torch.cat([edge, outputs[p_id].edge[start: end]])
       batch = torch.cat([batch, outputs[p_id].batch[start: end]]) if self.disjoint else None
 
       sampled_nbrs_per_node += [end - start]
@@ -576,8 +554,7 @@ class DistNeighborSampler():
         etype_str = as_str(etype)
         result_map[f'{etype_str}.rows'] = rows
         result_map[f'{etype_str}.cols'] = output.col[etype]
-        if self.with_edge:
-          result_map[f'{etype_str}.eids'] = output.edge[etype]
+        result_map[f'{etype_str}.eids'] = output.edge[etype]
           
       # Collect node labels of input node type.
       if not isinstance(input_type, Tuple):
@@ -595,27 +572,26 @@ class DistNeighborSampler():
           nfeats = await wrap_torch_future(fut)
           result_map[f'{as_str(ntype)}.nfeats'] = nfeats
       # Collect edge features
-      if self.dist_edge_feature is not None and self.with_edge:
-        efeat_fut_dict = {}
-        for etype in self.edge_types:
-          eids = result_map.get(f'{as_str(etype)}.eids', None).to(torch.long)
-          if eids is not None:
-            efeat_fut_dict[etype] = self.dist_edge_feature.async_get(eids, etype)
-        for etype, fut in efeat_fut_dict.items():
-          efeats = await wrap_torch_future(fut)
-          result_map[f'{as_str(etype)}.efeats'] = efeats
+      efeat_fut_dict = {}
+      for etype in self.edge_types:
+        eids = result_map.get(f'{as_str(etype)}.eids', None).to(torch.long)
+        if eids is not None:
+          efeat_fut_dict[etype] = self.feature.async_get(eids, etype)
+      for etype, fut in efeat_fut_dict.items():
+        efeats = await wrap_torch_future(fut)
+        result_map[f'{as_str(etype)}.efeats'] = efeats
     else:
         # Collect node labels.
         nlabels = self.dist_graph.labels[output.node] if (self.dist_graph.labels is not None) else None
         # Collect node features.
-        if self.with_node:
+        if output.node is not None:
           fut = self.dist_feature.lookup_features(is_node_feat=True, ids=output.node)
           nfeats = await wrap_torch_future(fut) 
           nfeats = nfeats.to(torch.device('cpu'))
         else:
           nfeats = None
         # Collect edge features.
-        if self.with_edge and output.edge is not None:
+        if output.edge is not None:
           fut = self.dist_feature.lookup_features(is_node_feat=False, ids=output.edge)
           efeats = await wrap_torch_future(fut)
           efeats = efeats.to(torch.device('cpu'))
