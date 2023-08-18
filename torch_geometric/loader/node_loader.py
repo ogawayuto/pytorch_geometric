@@ -77,6 +77,7 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
             :class:`torch.utils.data.DataLoader`, such as :obj:`batch_size`,
             :obj:`shuffle`, :obj:`drop_last` or :obj:`num_workers`.
     """
+
     def __init__(
         self,
         data: Union[Data, HeteroData, Tuple[FeatureStore, GraphStore]],
@@ -108,7 +109,7 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
         self.filter_per_worker = filter_per_worker
         self.custom_cls = custom_cls
         self.worker_init_fn = worker_init_fn
-        
+
         self.input_data = NodeSamplerInput(
             input_id=input_id,
             node=input_nodes,
@@ -143,7 +144,7 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
             out = self.filter_fn(out)
 
         return out
-      
+
     def filter_fn(
         self,
         out: Union[SamplerOutput, HeteroSamplerOutput],
@@ -158,8 +159,8 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
         if isinstance(out, SamplerOutput):
             if isinstance(self.data, Data):
                 data = filter_data(self.data, out.node, out.row, out.col,
-                                out.edge, self.node_sampler.edge_permutation)
-            else: # Tuple[FeatureStore, GraphStore]
+                                   out.edge, self.node_sampler.edge_permutation)
+            else:  # Tuple[FeatureStore, GraphStore]
                 data = Data(x=out.metadata[2],
                             y=out.metadata[3],
                             edge_index=torch.stack([out.row, out.col]),
@@ -173,11 +174,10 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
             data.batch = out.batch
             data.num_sampled_nodes = out.num_sampled_nodes
             data.num_sampled_edges = out.num_sampled_edges
-            
+
             data.input_id = out.metadata[0]
             data.seed_time = out.metadata[1]
             data.batch_size = out.metadata[0].size(0)
-
 
         elif isinstance(out, HeteroSamplerOutput):
             if isinstance(self.data, HeteroData):
@@ -185,15 +185,19 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
                                           out.col, out.edge,
                                           self.node_sampler.edge_permutation)
             else:  # Tuple[FeatureStore, GraphStore]
-                if len(out.metadata) > 2: # DistSamplerOutput
-                    data = HeteroData(x=out.metadata[2],
+                if len(out.metadata) > 2:  # DistSamplerOutput
+                    data = HeteroData(
+                        x=out.metadata[2],
                         y=out.metadata[3],
-                        edge_index={key: torch.stack([out.row[key], out.col[key]]) for key in out.row.keys()},
-                        edge_attr=out.metadata[4],
+                        edge_index={key: torch.stack(
+                            [out.row[key],
+                             out.col[key]])
+                            for key in out.row.keys()},
+                        edge_attr=out.metadata[4]
                         )
                 else:
                     data = filter_custom_store(*self.data, out.node, out.row,
-                                            out.col, out.edge, self.custom_cls)
+                                               out.col, out.edge, self.custom_cls)
 
             for key, node in out.node.items():
                 if 'n_id' not in data[key]:
