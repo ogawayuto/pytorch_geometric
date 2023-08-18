@@ -41,7 +41,8 @@ def create_dist_data(tmp_path, rank):
     
     feat_store.partition_idx = partition_idx
     feat_store.num_partitions = num_partitions
-    feat_store.feature_pb = node_pb 
+    feat_store.node_feat_pb = node_pb 
+    feat_store.edge_feat_pb = edge_pb 
     feat_store.meta = meta
     
     data = (feat_store, graph_store)
@@ -83,7 +84,7 @@ def homo_dist_neighbor_loader(
         concurrency=concurrency,
         collect_features=True,
         device=device,
-        drop_last = False,
+        drop_last = True,
         async_sampling = async_sampling
     )
 

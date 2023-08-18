@@ -128,6 +128,8 @@ class DistNeighborSampler():
     self.dist_feature = data[0]
     assert isinstance(self.dist_graph, LocalGraphStore), f"Provided data is in incorrect format: self.dist_graph must be `LocalGraphStore`, got {type(self.dist_graph)}"
     assert isinstance(self.dist_feature, LocalFeatureStore), f"Provided data is in incorrect format: self.dist_feature must be `LocalFeatureStore`, got {type(self.dist_feature)}"
+    self.is_hetero = self.dist_graph.meta['is_hetero']
+
 
     self.num_neighbors = num_neighbors
     self.channel = channel
@@ -158,13 +160,13 @@ class DistNeighborSampler():
     # collect node\edge features
     try:
       node_features = self.dist_feature.get_tensor(group_name=None, attr_name='x')
-      print(f"--000000000000.1-- node_features={node_features} ")
+      # print(f"--000000000000.1-- node_features={node_features} ")
     except KeyError:
       self.with_node = False
     
     try:
       edge_features = self.dist_feature.get_tensor(group_name=(None,None), attr_name='edge_attr')
-      print(f"--000000000000.2-- edge_features={edge_features} ")
+      # print(f"--000000000000.2-- edge_features={edge_features} ")
     except KeyError:
       self.with_edge = False
 
@@ -183,6 +185,7 @@ class DistNeighborSampler():
       disjoint=self.disjoint,
       temporal_strategy=self.temporal_strategy,
       time_attr=self.time_attr,
+
     )
 
     print("----------- DistNeighborSampler: after NeigborSampler()  ------------- ")
@@ -408,7 +411,6 @@ class DistNeighborSampler():
         num_sampled_nodes.append(len(srcs))
         num_sampled_edges.append(len(out.node))
         sampled_nbrs_per_node += out.metadata
-
       row, col = torch.ops.pyg.get_adj_matrix(seed, node_with_dupl, sampled_nbrs_per_node, self._sampler.num_nodes, self.disjoint)
       # print("sampled nbrs per node: ")
       # print(sampled_nbrs_per_node)
@@ -567,7 +569,7 @@ class DistNeighborSampler():
 
     input_type = output.metadata[2]
     
-    if self.dist_graph.meta["is_hetero"]:
+    if self.is_hetero:
       for ntype, nodes in output.node.items():
         result_map[f'{as_str(ntype)}.ids'] = nodes
       for etype, rows in output.row.items():
@@ -603,7 +605,7 @@ class DistNeighborSampler():
           efeats = await wrap_torch_future(fut)
           result_map[f'{as_str(etype)}.efeats'] = efeats
     else:
-        # Collect node labels.        
+        # Collect node labels.
         nlabels = self.dist_graph.labels[output.node] if (self.dist_graph.labels is not None) else None
         # Collect node features.
         if self.with_node:

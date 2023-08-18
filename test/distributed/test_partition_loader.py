@@ -61,7 +61,7 @@ def run_rpc_feature_test(
 
     feature.num_partitions = world_size
     feature.partition_idx = rank
-    feature.feature_pb = node_pb 
+    feature.node_feat_pb = node_pb 
     feature.meta = meta
     #feature.set_rpc_router(rpc_router)
 

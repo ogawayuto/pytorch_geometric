@@ -77,7 +77,7 @@ def run_training_proc(
 
     feature.num_partitions = num_partitions
     feature.partition_idx = partition_idx
-    feature.feature_pb = node_pb
+    feature.node_feat_pb = node_pb
     feature.meta = meta
 
     if node_label_file is not None:
