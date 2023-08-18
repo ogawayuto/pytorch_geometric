@@ -8,7 +8,6 @@ from torch_geometric.loader.base import DataLoaderIterator
 from torch_geometric.loader.mixin import AffinityMixin
 from torch_geometric.loader.utils import (
     filter_custom_store,
-    filter_hetero_custom_store,
     filter_data,
     filter_hetero_data,
     get_input_nodes,
