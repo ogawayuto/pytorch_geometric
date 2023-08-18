@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Union, Tuple
 from pyparsing import Any
 from ordered_set import OrderedSet
 import numpy as np
-
+from torch_geometric.sampler.utils import remap_keys
 
 from torch_geometric.sampler import (
   NodeSamplerInput, EdgeSamplerInput,
@@ -344,7 +344,8 @@ class DistNeighborSampler():
           sampled_nbrs_per_node_dict[dst] += out.metadata
 
       row_dict, col_dict = torch.ops.pyg.get_hetero_adj_matrix(node_types, edge_types, {input_type: seed}, node_with_dupl_dict, sampled_nbrs_per_node_dict, self._sampler.num_nodes, self.disjoint)
-
+      edge_dict = remap_keys(edge_dict, {k: '__'.join(k) for k in edge_types})
+      
       sample_output = HeteroSamplerOutput(
         node=node_dict,
         row=row_dict,
@@ -563,14 +564,13 @@ class DistNeighborSampler():
           result_map[f'{as_str(input_type)}.nlabels'] = \
             node_labels[output.node[input_type]]
       # Collect node features.
-      if self.dist_feature is not None:
-        nfeat_fut_dict = {}
-        for ntype, nodes in output.node.items():
-          nodes = nodes.to(torch.long)
-          nfeat_fut_dict[ntype] = self.dist_feature.async_get(nodes, ntype)
-        for ntype, fut in nfeat_fut_dict.items():
-          nfeats = await wrap_torch_future(fut)
-          result_map[f'{as_str(ntype)}.nfeats'] = nfeats
+      nfeat_fut_dict = {}
+      for ntype, nodes in output.node.items():
+        nodes = nodes.to(torch.long)
+        nfeat_fut_dict[ntype] = self.dist_feature.async_get(nodes, ntype)
+      for ntype, fut in nfeat_fut_dict.items():
+        nfeats = await wrap_torch_future(fut)
+        result_map[f'{as_str(ntype)}.nfeats'] = nfeats
       # Collect edge features
       efeat_fut_dict = {}
       for etype in self.edge_types:
