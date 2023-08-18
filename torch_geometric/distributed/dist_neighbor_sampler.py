@@ -349,7 +349,7 @@ class DistNeighborSampler():
         node=node_dict,
         row=row_dict,
         col=col_dict,
-        edge=edge_dict
+        edge=edge_dict,
         batch=batch_dict if self.disjoint else None,
         num_sampled_nodes=num_sampled_nodes_dict,
         num_sampled_edges=num_sampled_edges_dict,
