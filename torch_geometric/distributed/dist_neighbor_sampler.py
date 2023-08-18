@@ -274,7 +274,6 @@ class DistNeighborSampler():
     input_type = inputs.input_type
     metadata =  (seed, seed_time, input_type)
     batch_size = seed.numel()
-    src_batch = torch.arange(batch_size) if self.disjoint else None
 
     print(f" ----777.1 -------- distNSampler:  node_sample, inputs={inputs}, seed={seed}, input_type={input_type} ")
     if self.is_hetero:
@@ -285,7 +284,10 @@ class DistNeighborSampler():
       node_dict: Dict[NodeType, OrderedSet[Tensor]] = {}
       node_with_dupl_dict: Dict[NodeType, Tensor] = {}
       edge_dict: Dict[EdgeType, Tensor] = {}
+      src_batch_dict: Dict[NodeType, Tensor] = {}
       batch_dict: Dict[NodeType, Tensor] = {}
+      batch_with_dupl_dict: Dict[NodeType, Tensor] = {}
+      seed_time_dict: Dict[NodeType, Tensor] = {input_type: seed_time}
       sampled_nbrs_per_node_dict: Dict[NodeType, List[int]] = {}
       num_sampled_nodes_dict: Dict[NodeType, List[int]] = {}
       num_sampled_edges_dict: Dict[EdgeType, List[int]] = {}
@@ -294,12 +296,16 @@ class DistNeighborSampler():
         srcs_dict.update({ntype: torch.empty(0, dtype=torch.int64)})
         node_dict.update({ntype: OrderedSet(torch.empty(0, dtype=torch.int64))})
         node_with_dupl_dict.update({ntype: torch.empty(0, dtype=torch.int64)})
+        src_batch_dict.update({ntype: torch.empty(0, dtype=torch.int64)}) if self.disjoint else None
         batch_dict.update({ntype: torch.empty(0, dtype=torch.int64)}) if self.disjoint else None
+        batch_with_dupl_dict.update({ntype: torch.empty(0, dtype=torch.int64)}) if self.disjoint else None
         sampled_nbrs_per_node_dict.update({ntype: []})
         num_sampled_nodes_dict.update({ntype: [0]})
 
       srcs_dict[input_type] = seed
+      src_batch_dict[input_type] = src_batch
       batch_dict[input_type] = src_batch
+
       edge_types = []
       node_types = []
       for etype in self._sampler.edge_types:
@@ -310,16 +316,18 @@ class DistNeighborSampler():
           node_types.extend([etype[0], etype[2]])
         node_types = list(set(node_types))
           
-      node_dict[input_type] = OrderedSet(seed)
+      node_dict[input_type] = OrderedSet(seed) if not self.disjoint else OrderedSet(tuple(zip(src_batch, seed)))
       num_sampled_nodes_dict[input_type].append(seed.numel())
 
       for i in range(self._sampler.num_hops):
         task_dict = {}
         for etype in edge_types:
-          srcs = srcs_dict.get(etype[2], None)
+          src = etype[2]
+          srcs = srcs_dict.get(src, None)
+          seed_time = seed_time_dict.get(src, None) if seed_time_dict.get(src, None) is not None else None
           one_hop_num = self.num_neighbors[i] if isinstance(self.num_neighbors, List) else self.num_neighbors[etype][i]
           task_dict[etype] = self.event_loop._loop.create_task(
-            self._sample_one_hop(srcs, one_hop_num, None, src_batch, etype)) # add seed_time and src_batch
+            self._sample_one_hop(srcs, one_hop_num, seed_time, src_batch_dict[src], etype))
         for etype, task in task_dict.items():
           out: HeteroSamplerOutput = await task
 
@@ -336,19 +344,24 @@ class DistNeighborSampler():
           node_dict[dst].update(node_wo_dupl)
 
           node_with_dupl_dict[dst] = torch.cat([node_with_dupl_dict[dst], out.node])
-          edge_dict[etype] = torch.cat([edge_dict[etype], out.edge])
-          src_batch = out.batch
-          batch_dict[dst] = torch.cat([batch_dict[dst], out.batch]) if self.disjoint else None
+          edge_dict[etype] = torch.cat([edge_dict[etype], out.edge]) if self.with_edge else None
+
+          if self.disjoint:
+            src_batch_dict[dst] = torch.Tensor(list(zip(*node_wo_dupl))[0]).type(torch.int64)
+            batch_dict[dst] = torch.cat([batch_dict[dst], src_batch_dict[dst]])
+            batch_with_dupl_dict[dst] = torch.cat([batch_with_dupl_dict[dst], out.batch])
+
           num_sampled_nodes_dict[dst].append(len(srcs_dict[dst]))
           num_sampled_edges_dict[etype].append(len(out.node))
           sampled_nbrs_per_node_dict[dst] += out.metadata
 
-      row_dict, col_dict = torch.ops.pyg.get_hetero_adj_matrix(node_types, edge_types, {input_type: seed}, node_with_dupl_dict, sampled_nbrs_per_node_dict, self._sampler.num_nodes, self.disjoint)
-      
-      #edge_dict = remap_keys(edge_dict, {k: '__'.join(k) for k in edge_types})
-      
-      node_dict= {ntype:torch.Tensor(node_dict[ntype]).type(torch.int64) for ntype in node_types}
-        
+      row_dict, col_dict = torch.ops.pyg.get_hetero_adj_matrix(node_types, edge_types, {input_type: seed}, node_with_dupl_dict, sampled_nbrs_per_node_dict, self._sampler.num_nodes, batch_with_dupl_dict, self.disjoint)
+
+      for ntype in node_types:
+        node_dict[ntype] = torch.Tensor(node_dict[ntype]).type(torch.int64)
+        if self.disjoint:
+          batch_dict[ntype], node[ntype] = node_dict[ntype].t().contiguous()
+
       sample_output = HeteroSamplerOutput(
         node=node_dict,
         row=row_dict,
@@ -362,10 +375,13 @@ class DistNeighborSampler():
     else:
 
       srcs = seed
+
+      src_batch = torch.arange(batch_size) if self.disjoint else None
       batch = src_batch
 
-      node = OrderedSet(srcs) if not self.disjoint else OrderedSet(tuple(zip(batch, srcs)))
+      node = OrderedSet(srcs) if not self.disjoint else OrderedSet(tuple(zip(src_batch, srcs)))
       node_with_dupl = torch.empty(0, dtype=torch.int64)
+      batch_with_dupl = torch.empty(0, dtype=torch.int64)
       edge = torch.empty(0, dtype=torch.int64)
       
       sampled_nbrs_per_node = []
@@ -387,15 +403,23 @@ class DistNeighborSampler():
         node.update(node_wo_dupl)
 
         node_with_dupl = torch.cat([node_with_dupl, out.node])
-        edge = torch.cat([edge, out.edge])
-        src_batch = out.batch
-        batch = torch.cat([batch, out.batch]) if self.disjoint else None
+
+        edge = torch.cat([edge, out.edge]) if self.with_edge else None
+
+        if self.disjoint:
+          src_batch = torch.Tensor(list(zip(*node_wo_dupl))[0]).type(torch.int64)
+          batch = torch.cat([batch, src_batch])
+          batch_with_dupl = torch.cat([batch_with_dupl, out.batch])
+
         num_sampled_nodes.append(len(srcs))
         num_sampled_edges.append(len(out.node))
         sampled_nbrs_per_node += out.metadata
-      row, col = torch.ops.pyg.get_adj_matrix(seed, node_with_dupl, sampled_nbrs_per_node, self._sampler.num_nodes, self.disjoint)
-      # print("sampled nbrs per node: ")
-      # print(sampled_nbrs_per_node)
+
+      # node_with_dupl = torch.Tensor(node_with_dupl).type(torch.int64)
+
+      row, col = torch.ops.pyg.get_adj_matrix(seed, node_with_dupl, sampled_nbrs_per_node, self._sampler.num_nodes, batch_with_dupl, self.disjoint)
+      print("sampled nbrs per node: ")
+      print(sampled_nbrs_per_node)
       # print("row:")
       # print(row)
       # print("col:")
@@ -403,7 +427,8 @@ class DistNeighborSampler():
 
       node = torch.Tensor(node).type(torch.int64)
       if self.disjoint:
-        node = node.t().contiguous()
+        batch, node = node.t().contiguous()
+
       sample_output = SamplerOutput(
         node=node,
         row=row,

@@ -209,6 +209,10 @@ class NeighborSampler(BaseSampler):
         rel_type = '__'.join(edge_type) if self.is_hetero else None
         colptr = self.colptr if not self.is_hetero else self.colptr_dict[rel_type]
         row = self.row if not self.is_hetero else self.row_dict[rel_type]
+        if self.node_time is not None:
+            node_time = self.node_time if not self.is_hetero else self.node_time[edge_type[2]]
+        else:
+            node_time = None
         seed = srcs
 
         out = torch.ops.pyg.neighbor_sample(
@@ -216,7 +220,7 @@ class NeighborSampler(BaseSampler):
             row,
             seed.to(colptr.dtype),  # seed
             [one_hop_num],
-            self.node_time,
+            node_time,
             seed_time,
             batch,
             True, # csc
