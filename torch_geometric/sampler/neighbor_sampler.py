@@ -3,7 +3,7 @@ import copy
 import math
 import sys
 import warnings
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union, Set
 
 import torch
 from torch import Tensor
@@ -138,10 +138,10 @@ class NeighborSampler(BaseSampler):
                 self.row, self.colptr, self.perm = graph_store.csc()
             else:
                 self.is_hetero = True
-                # Obtain graph metadata:      
-                self.node_types = list(set(attr.group_name for attr in node_attrs))
+                # Obtain graph metadata:
+                self.node_types = list(set(attr.group_name for attr in node_attrs if type(attr.group_name) == NodeType))
                 self.edge_types = list(set(attr.edge_type for attr in edge_attrs))
-
+    
                 self.num_nodes = {
                     node_type: remote_backend_utils.size(*data, node_type)
                     for node_type in self.node_types
@@ -167,6 +167,7 @@ class NeighborSampler(BaseSampler):
                 self.colptr_dict = remap_keys(colptr_dict, self.to_rel_type)
 
         self.num_neighbors = num_neighbors
+        self.num_hops = self.num_neighbors.num_hops
         self.replace = replace
         self.subgraph_type = SubgraphType(subgraph_type)
         self.disjoint = disjoint
@@ -197,83 +198,51 @@ class NeighborSampler(BaseSampler):
         self._disjoint = disjoint
 
 
-
     def sample_one_hop(
         self,
-        srcs: torch.Tensor,
+        srcs: Tensor,
         one_hop_num: int,
-        seed_time: OptTensor = None,
+        seed_time: Optional[Tensor] = None,
         batch: OptTensor = None,
-        src_etype: EdgeType = None
-      ) -> NeighborOutput:
+        edge_type: EdgeType = None
+      ) -> SamplerOutput:
+        rel_type = '__'.join(edge_type) if self.is_hetero else None
+        colptr = self.colptr if not self.is_hetero else self.colptr_dict[rel_type]
+        row = self.row if not self.is_hetero else self.row_dict[rel_type]
+        seed = srcs
+
+        out = torch.ops.pyg.neighbor_sample(
+            colptr,
+            row,
+            seed.to(colptr.dtype),  # seed
+            [one_hop_num],
+            self.node_time,
+            seed_time,
+            batch,
+            True, # csc
+            self.replace,
+            self.subgraph_type != SubgraphType.induced,
+            self.disjoint,
+            self.temporal_strategy,
+            True, # return_edge_id
+            True, # distributed
+        )
+        _, _, node, edge, batch = out[:4] + (None, )
+
+        cumm_sum_nbrs_per_node = out[6]
     
-        # Homo
-        if not self.is_hetero:
-            seed = srcs
-            # TODO (matthias) `return_edge_id` if edge features present
-            # TODO (matthias) Ideally, `seed` inherits dtype from `colptr`
-            out = torch.ops.pyg.neighbor_sample(
-                self.colptr,
-                self.row,
-                seed.to(self.colptr.dtype),  # seed
-                [one_hop_num],
-                self.node_time,
-                seed_time,
-                batch,
-                True, # csc
-                self.replace,
-                self.subgraph_type != SubgraphType.induced,
-                self.disjoint,
-                self.temporal_strategy,
-                True, # return_edge_id
-                True, # distributed
-            )
-            row, col, node, edge, batch = out[:4] + (None, )
+        if self.disjoint:
+            batch, node = node.t().contiguous()
 
-            cumm_sum_sampled_nbrs_per_node = out[6]
-    
-            if self.disjoint:
-                batch, node = node.t().contiguous()
-        else:
-            seed = srcs
-            # TODO (matthias) `return_edge_id` if edge features present
-            # TODO (matthias) Ideally, `seed` inherits dtype from `colptr`
-            colptrs = list(self.colptr_dict.values())
-            dtype = colptrs[0].dtype if len(colptrs) > 0 else torch.int64
-            seed = {k: v.to(dtype) for k, v in seed.items()}
-
-            out = torch.ops.pyg.hetero_neighbor_sample(
-                self.node_types,
-                self.edge_types,
-                self.colptr_dict,
-                self.row_dict,
-                seed,
-                [one_hop_num], #self.num_neighbors.get_mapped_values(self.edge_types),
-                self.node_time,
-                seed_time,
-                True,  # csc
-                self.replace,
-                self.directed,
-                self.disjoint,
-                self.temporal_strategy,
-                True,  # return_edge_id
-            )
-            row, col, node, edge, batch = out[:4] + (None, )
-
-            if self.disjoint:
-                node = {k: v.t().contiguous() for k, v in node.items()}
-                batch = {k: v[0] for k, v in node.items()}
-                node = {k: v[1] for k, v in node.items()}
-
-        #*print(f"-------- NSampler.2: sample_one_hop(), out={out} ------")
         return SamplerOutput(
-                node=node,
-                row=None,
-                col=None,
-                edge=edge,
-                batch=batch,
-                metadata=(cumm_sum_sampled_nbrs_per_node)
-            )
+            node=node,
+            row=None,
+            col=None,
+            edge=edge,
+            batch=batch,
+            metadata=(cumm_sum_nbrs_per_node)
+        )
+
 
     # Node-based sampling #####################################################
 
@@ -282,7 +251,6 @@ class NeighborSampler(BaseSampler):
         self,
         inputs: NodeSamplerInput,
     ) -> Union[SamplerOutput, HeteroSamplerOutput]:
-        print(f"------  neighborSampler:  sample_from_nodes -------")
         return node_sample(inputs, self._sample)
 
     # Edge-based sampling #####################################################
