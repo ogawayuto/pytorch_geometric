@@ -344,8 +344,11 @@ class DistNeighborSampler():
           sampled_nbrs_per_node_dict[dst] += out.metadata
 
       row_dict, col_dict = torch.ops.pyg.get_hetero_adj_matrix(node_types, edge_types, {input_type: seed}, node_with_dupl_dict, sampled_nbrs_per_node_dict, self._sampler.num_nodes, self.disjoint)
+      
       edge_dict = remap_keys(edge_dict, {k: '__'.join(k) for k in edge_types})
       
+      node_dict= {ntype:torch.Tensor(node_dict[ntype]).type(torch.int64) for ntype in node_types}
+        
       sample_output = HeteroSamplerOutput(
         node=node_dict,
         row=row_dict,
@@ -547,37 +550,41 @@ class DistNeighborSampler():
     result_map = {}
 
     input_type = output.metadata[2]
+    print(f"input_type: {input_type}")
     
     if self.is_hetero:
-      for ntype, nodes in output.node.items():
-        result_map[f'{as_str(ntype)}.ids'] = nodes
-      for etype, rows in output.row.items():
-        etype_str = as_str(etype)
-        result_map[f'{etype_str}.rows'] = rows
-        result_map[f'{etype_str}.cols'] = output.col[etype]
-        result_map[f'{etype_str}.eids'] = output.edge[etype]
+      nlabels = {}
+      nfeats = {}
+      efeats = {}
+      # for ntype, nodes in output.node.items():
+      #   result_map[f'{as_str(ntype)}.ids'] = nodes
+      # for etype, rows in output.row.items():
+      #   etype_str = as_str(etype)
+      #   result_map[f'{etype_str}.rows'] = rows
+      #   result_map[f'{etype_str}.cols'] = output.col[etype]
+      #   result_map[f'{etype_str}.eids'] = output.edge[etype]
           
       # Collect node labels of input node type.
       if not isinstance(input_type, Tuple):
-        node_labels = self.data.get_node_label(input_type)
+        node_labels = self.dist_graph.labels
         if node_labels is not None:
-          result_map[f'{as_str(input_type)}.nlabels'] = \
+          nlabels[f'{as_str(input_type)}.nlabels'] = \
             node_labels[output.node[input_type]]
       # Collect node features.
-      nfeat_fut_dict = {}
-      for ntype, nodes in output.node.items():
-        nodes = nodes.to(torch.long)
-        nfeat_fut_dict[ntype] = self.dist_feature.async_get(nodes, ntype)
-      for ntype, fut in nfeat_fut_dict.items():
-        nfeats = await wrap_torch_future(fut)
-        result_map[f'{as_str(ntype)}.nfeats'] = nfeats
+      
+      for ntype in output.node.keys():
+        #nodes = nodes.to(torch.long)
+        fut = self.dist_feature.lookup_features(is_node_feat=True, ids=output.node[ntype])
+        nfeat = await wrap_torch_future(fut)
+        nfeat = nfeat.to(torch.device('cpu'))
+        nfeats[ntype] = nfeat
+        
       # Collect edge features
-      efeat_fut_dict = {}
       for etype in self.edge_types:
         eids = result_map.get(f'{as_str(etype)}.eids', None).to(torch.long)
         if eids is not None:
-          efeat_fut_dict[etype] = self.feature.async_get(eids, etype)
-      for etype, fut in efeat_fut_dict.items():
+          efeats[etype] = self.feature.async_get(eids, etype)
+      for etype, fut in efeats.items():
         efeats = await wrap_torch_future(fut)
         result_map[f'{as_str(etype)}.efeats'] = efeats
     else:
