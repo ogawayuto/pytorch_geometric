@@ -64,18 +64,18 @@ class NeighborSampler(BaseSampler):
         self.data_type = DataType.from_data(data)
         self.directed = directed
         
-        print(f"---- NeighborSampler: init()  self.data_type={self.data_type}--------")
+        # print(f"---- NeighborSampler: init()  self.data_type={self.data_type}--------")
         if self.data_type == DataType.homogeneous:
             self.num_nodes = data.num_nodes
             self.node_time = data[time_attr] if time_attr else None
 
-            print(f"---- NeighborSampler: init()   self.num_nodes={self.num_nodes},  -------")
+            # print(f"---- NeighborSampler: init()   self.num_nodes={self.num_nodes},  -------")
             # Convert the graph data into CSC format for sampling:
             self.colptr, self.row, self.perm = to_csc(
                 data, device='cpu', share_memory=share_memory,
                 is_sorted=is_sorted, src_node_time=self.node_time)
         
-            print(f"---- NeighborSampler: init()   self.num_nodes={self.num_nodes},  self.colptr={ self.colptr}, self.row={self.row}, self.perm={self.perm}--------")
+            # print(f"---- NeighborSampler: init()   self.num_nodes={self.num_nodes},  self.colptr={ self.colptr}, self.row={self.row}, self.perm={self.perm}--------")
 
         elif self.data_type == DataType.heterogeneous:
             self.node_types, self.edge_types = data.metadata()
