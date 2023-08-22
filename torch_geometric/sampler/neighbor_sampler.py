@@ -62,7 +62,7 @@ class NeighborSampler(BaseSampler):
                           "accelerated neighborhood sampling")
 
         self.data_type = DataType.from_data(data)
-
+        self.directed = directed
         
         print(f"---- NeighborSampler: init()  self.data_type={self.data_type}--------")
         if self.data_type == DataType.homogeneous:
@@ -371,6 +371,7 @@ class NeighborSampler(BaseSampler):
                     self.num_neighbors.get_mapped_values(),
                     self.node_time,
                     seed_time,
+                    None,
                     True,  # csc
                     self.replace,
                     self.directed,

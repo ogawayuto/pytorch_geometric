@@ -218,48 +218,6 @@ def filter_custom_store(
 
     return data
 
-def filter_hetero_custom_store(
-    feature_store: FeatureStore,
-    graph_store: GraphStore,
-    node_dict: Dict[str, Tensor],
-    row_dict: Dict[str, Tensor],
-    col_dict: Dict[str, Tensor],
-    edge_dict: Dict[str, OptTensor],
-    custom_cls: Optional[HeteroData] = None,
-) -> HeteroData:
-    r"""Constructs a `HeteroData` object from a feature store that only holds
-    nodes in `node` end edges in `edge` for each node and edge type,
-    respectively."""
-
-    # Construct a new `HeteroData` object:
-    data = custom_cls() if custom_cls is not None else HeteroData()
-
-    # Filter edge storage:
-    # TODO support edge attributes
-    for attr in graph_store.get_all_edge_attrs():
-        key = attr.edge_type
-        if key in row_dict and key in col_dict:
-            edge_index = torch.stack([row_dict[key], col_dict[key]], dim=0)
-            data[attr.edge_type].edge_index = edge_index
-
-    # Filter node storage:
-    required_attrs = []
-    for attr in feature_store.get_all_tensor_attrs():
-        if attr.group_name in node_dict:
-            attr.index = node_dict[attr.group_name]
-            required_attrs.append(attr)
-            data[attr.group_name].num_nodes = attr.index.size(0)
-
-    # NOTE Here, we utilize `feature_store.multi_get` to give the feature store
-    # full control over optimizing how it returns features (since the call is
-    # synchronous, this amounts to giving the feature store control over all
-    # iteration).
-    tensors = feature_store.multi_get_tensor(required_attrs)
-    for i, attr in enumerate(required_attrs):
-        data[attr.group_name][attr.attr_name] = tensors[i]
-
-    return data
-
 # Input Utilities #############################################################
 
 

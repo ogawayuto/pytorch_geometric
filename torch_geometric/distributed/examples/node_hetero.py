@@ -81,7 +81,8 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
 
   feature.num_partitions = num_partitions
   feature.partition_idx = partition_idx
-  feature.feature_pb = node_pb
+  feature.node_feat_pb = node_pb
+  feature.edge_feat_pb = edge_pb
   feature.meta = meta
   
   if node_label_file is not None:
@@ -94,7 +95,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   node_labels = whole_node_labels
   graph.labels = node_labels
 
-  partition_data = (graph, feature)
+  partition_data = (feature, graph)
 
   # Initialize graphlearn_torch distributed worker group context.
   current_ctx = DistContext(world_size=num_nodes*num_training_procs_per_node,
@@ -151,7 +152,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     num_workers=num_workers,
     concurrency=1,
     master_addr=master_addr,
-    master_port=train_loader_master_port,
+    master_port=test_loader_master_port,
     async_sampling = True,
     filter_per_worker = False,
     current_ctx=current_ctx,
@@ -204,7 +205,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
 
     # Test accuracy.
     #if epoch == 0 or epoch > (epochs // 2):
-    if epoch % 5 == 0: # or epoch > (epochs // 2):
+    if epoch % 1 == 0: # or epoch > (epochs // 2):
       test_acc = test(model, test_loader, dataset_name)
       f.write(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
       print(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')

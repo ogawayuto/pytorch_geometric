@@ -56,8 +56,10 @@ class LocalFeatureStore(FeatureStore):
         # for partition/rpc info related to distributed features
         self.num_partitions: int = 1
         self.partition_idx: int = 0
-        self.feature_pb: Union[Tensor, Dict[NodeType, Tensor], Dict[EdgeType,
+        self.node_feat_pb: Union[Tensor, Dict[NodeType, Tensor], Dict[EdgeType,
                                                                     Tensor]]
+        self.edge_feat_pb: Optional[Union[Tensor, Dict[NodeType, Tensor], Dict[EdgeType,
+                                                            Tensor]]]
         self.local_only: bool = False
         self.rpc_router: Optional[RPCRouter] = None
         self.meta: Optional[Dict] = None
@@ -155,11 +157,11 @@ class LocalFeatureStore(FeatureStore):
         input_type: Optional[Union[NodeType, EdgeType]] = None,
     ) -> torch.futures.Future:
         r""" Lookup the local/remote features based on node/edge ids """
-
-        remote_fut = self._remote_lookup_features(ids, is_node_feat,
+        pb = self.node_feat_pb if is_node_feat else self.edge_feat_pb 
+        remote_fut = self._remote_lookup_features(ids, pb, is_node_feat,
                                                   input_type)
-        local_feature = self._local_lookup_features(ids, is_node_feat,
-                                                    input_type)
+        local_feature = self._local_lookup_features(ids, pb, is_node_feat,
+                                                  input_type)
         res_fut = torch.futures.Future()
 
         def when_finish(*_):
@@ -182,6 +184,7 @@ class LocalFeatureStore(FeatureStore):
     def _local_lookup_features(
         self,
         ids: torch.Tensor,
+        partition_book,
         is_node_feat: bool = True,
         input_type: Optional[Union[NodeType, EdgeType]] = None,
     ) -> torch.Tensor:
@@ -189,10 +192,10 @@ class LocalFeatureStore(FeatureStore):
 
         if self.meta["is_hetero"]:
             feat = self
-            pb = self.feature_pb[input_type]
+            pb = partition_book[input_type]
         else:
             feat = self
-            pb = self.feature_pb
+            pb = partition_book
 
         input_order = torch.arange(ids.size(0), dtype=torch.long)
         partition_ids = pb[ids]
@@ -225,15 +228,16 @@ class LocalFeatureStore(FeatureStore):
     def _remote_lookup_features(
         self,
         ids: torch.Tensor,
+        partition_book,
         is_node_feat: bool = True,
         input_type: Optional[Union[NodeType, EdgeType]] = None,
     ) -> torch.futures.Future:
         r""" fetch the remote features with the remote node/edge ids"""
 
         if self.meta["is_hetero"]:
-            pb = self.feature_pb[input_type]
+            pb = partition_book[input_type]
         else:
-            pb = self.feature_pb
+            pb = partition_book
 
         input_order = torch.arange(ids.size(0), dtype=torch.long)
         partition_ids = pb[ids]

@@ -8,7 +8,6 @@ from torch_geometric.loader.base import DataLoaderIterator
 from torch_geometric.loader.mixin import AffinityMixin
 from torch_geometric.loader.utils import (
     filter_custom_store,
-    filter_hetero_custom_store,
     filter_data,
     filter_hetero_data,
     get_edge_label_index,
@@ -131,8 +130,7 @@ class LinkLoader(torch.utils.data.DataLoader, AffinityMixin):
         transform_sampler_output: Optional[Callable] = None,
         filter_per_worker: Optional[bool] = None,
         custom_cls: Optional[HeteroData] = None,
-        custom_init: Optional[Callable] = None,
-        custom_filter: Optional[Callable] = None,
+        worker_init_fn: Optional[Callable] = None,
         input_id: OptTensor = None,
         **kwargs,
     ):
@@ -160,8 +158,6 @@ class LinkLoader(torch.utils.data.DataLoader, AffinityMixin):
         self.transform_sampler_output = transform_sampler_output
         self.filter_per_worker = filter_per_worker
         self.custom_cls = custom_cls
-        self.filter_fn = custom_filter if custom_filter else self._filter_fn
-        self.init_fn = custom_init if custom_init else self._init_fn
 
         if (self.neg_sampling is not None and self.neg_sampling.is_binary()
                 and edge_label is not None and edge_label.min() == 0):
@@ -190,7 +186,7 @@ class LinkLoader(torch.utils.data.DataLoader, AffinityMixin):
         super().__init__(
             iterator, 
             collate_fn=self.collate_fn, 
-            worker_init_fn=self.init_fn,
+            worker_init_fn=worker_init_fn,
             **kwargs)
 
     def __call__(
@@ -214,11 +210,8 @@ class LinkLoader(torch.utils.data.DataLoader, AffinityMixin):
             out = self.filter_fn(out)
 
         return out
-    
-    def _init_fn(self, worker_id):
-        pass
-    
-    def _filter_fn(
+
+    def filter_fn(
         self,
         out: Union[SamplerOutput, HeteroSamplerOutput],
     ) -> Union[Data, HeteroData]:
@@ -233,9 +226,6 @@ class LinkLoader(torch.utils.data.DataLoader, AffinityMixin):
             if isinstance(self.data, Data):
                 data = filter_data(self.data, out.node, out.row, out.col, out.edge,
                                 self.link_sampler.edge_permutation)
-            else: # Tuple[FeatureStore, GraphStore]
-                data = filter_custom_store(*self.data, out.node, out.row,
-                                out.col, out.edge, self.custom_cls)
 
             if 'n_id' not in data:
                 data.n_id = out.node

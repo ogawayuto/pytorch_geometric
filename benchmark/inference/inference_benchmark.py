@@ -298,7 +298,7 @@ if __name__ == '__main__':
     add('--reuse-device-for-embeddings', action='store_true',
         help='Use the same device for embeddings as specified in "--device"')
     add('--datasets', nargs='+',
-        default=['ogbn-mag'], type=str)
+        default=['ogbn-mag', 'ogbn-products', 'Reddit'], type=str)
     add('--use-sparse-tensor', action='store_true',
         help='use torch_sparse.SparseTensor as graph storage format')
     add('--models', nargs='+',
