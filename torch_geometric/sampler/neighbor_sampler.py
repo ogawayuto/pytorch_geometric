@@ -210,7 +210,7 @@ class NeighborSampler(BaseSampler):
         colptr = self.colptr if not self.is_hetero else self.colptr_dict[rel_type]
         row = self.row if not self.is_hetero else self.row_dict[rel_type]
         if self.node_time is not None:
-            node_time = self.node_time if not self.is_hetero else self.node_time[edge_type[2]]
+            node_time = self.node_time if not self.is_hetero else self.node_time[edge_type[2]] # csc
         else:
             node_time = None
         seed = srcs
