@@ -115,7 +115,7 @@ def run_training_proc(
     train_idx = train_idx.split(train_idx.size(
         0) // num_training_procs_per_node)[local_proc_rank]
 
-    num_workers = 2
+    num_workers = 0
     train_loader = pyg_dist.DistNeighborLoader(
         data=partition_data,
         num_neighbors=[15, 10, 5],
@@ -125,7 +125,7 @@ def run_training_proc(
         collect_features=True,
         device=torch.device('cpu'),
         num_workers=num_workers,
-        concurrency=2,
+        concurrency=1,
         master_addr=master_addr,
         master_port=train_loader_master_port,
         async_sampling=True,
@@ -148,7 +148,7 @@ def run_training_proc(
         collect_features=True,
         device=torch.device('cpu'),
         num_workers=num_workers,
-        concurrency=2,
+        concurrency=1,
         master_addr=master_addr,
         master_port=test_loader_master_port,
         async_sampling=True,

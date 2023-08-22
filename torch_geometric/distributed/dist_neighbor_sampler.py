@@ -28,7 +28,6 @@ from torch_geometric.distributed import (
     LocalFeatureStore,
     LocalGraphStore
     )
-from .pyg_messagequeue import PyGMessageQueue
 from torch_geometric.typing import EdgeType, NodeType
 
 from torch_geometric.sampler.base import SubgraphType
