@@ -15,7 +15,7 @@ import torch.nn.functional as F
 
 from ogb.nodeproppred import Evaluator
 from torch.nn.parallel import DistributedDataParallel
-from torch_geometric.nn import GraphSAGE
+from benchmark.utils.hetero_sage import HeteroGraphSAGE
 
 from torch_geometric.distributed import (
     LocalFeatureStore,
@@ -161,7 +161,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   # Define model and optimizer.
   #torch.cuda.set_device(current_device)
 
-  model = GraphSAGE(
+  model = HeteroGraphSAGE(
     in_channels=in_channels,
     hidden_channels=256,
     num_layers=3,
@@ -180,7 +180,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     for batch in train_loader:
       print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
       optimizer.zero_grad()
-      out = model(batch.x_dict, batch.edge_index_dict)[:batch.batch_size].log_softmax(dim=-1)
+      out = model(batch.x_dict, batch.edge_index_dict[('author', 'writes', 'paper')])[:batch.batch_size].log_softmax(dim=-1)
       loss = F.nll_loss(out, batch.y[:batch.batch_size])
       loss.backward()
       optimizer.step()
