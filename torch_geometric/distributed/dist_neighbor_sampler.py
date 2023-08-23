@@ -379,7 +379,7 @@ class DistNeighborSampler():
 
       srcs = seed
 
-      node = OrderedSet(srcs) if not self.disjoint else OrderedSet(tuple(zip(src_batch, srcs)))
+      node = OrderedSet(srcs.tolist()) if not self.disjoint else OrderedSet(tuple(zip(src_batch.tolist(), srcs.tolist())))
       node_with_dupl = torch.empty(0, dtype=torch.int64)
       batch = torch.empty(0, dtype=torch.int64) if self.disjoint else None
       batch_with_dupl = torch.empty(0, dtype=torch.int64)
@@ -394,7 +394,7 @@ class DistNeighborSampler():
 
         # remove duplicates
         # TODO: find better method to remove duplicates
-        node_wo_dupl = OrderedSet(out.node) if not self.disjoint else OrderedSet(zip(out.batch, out.node))
+        node_wo_dupl = OrderedSet((out.node).tolist()) if not self.disjoint else OrderedSet(zip((out.batch).tolist(), (out.node).tolist()))
         if len(node_wo_dupl) == 0:
           # no neighbors were sampled
           break
