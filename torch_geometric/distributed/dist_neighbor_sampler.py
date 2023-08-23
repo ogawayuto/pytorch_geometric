@@ -276,7 +276,7 @@ class DistNeighborSampler():
     batch_size = seed.numel()
     src_batch = torch.arange(batch_size) if self.disjoint else None
 
-    print(f" ----777.1 -------- distNSampler:  node_sample, inputs={inputs}, seed={seed}, input_type={input_type} ")
+    # print(f" ----777.1 -------- distNSampler:  node_sample, inputs={inputs}, seed={seed}, input_type={input_type} ")
     if self.is_hetero:
       if input_type is None:
         raise ValueError("Input type should be defined")
@@ -416,8 +416,8 @@ class DistNeighborSampler():
         sampled_nbrs_per_node += out.metadata
 
       row, col = torch.ops.pyg.relabel_neighborhood(seed, node_with_dupl, sampled_nbrs_per_node, self._sampler.num_nodes, batch_with_dupl, self.csc, self.disjoint)
-      print("sampled nbrs per node: ")
-      print(sampled_nbrs_per_node)
+      # print("sampled nbrs per node: ")
+      # print(sampled_nbrs_per_node)
       # print("row:")
       # print(row)
       # print("col:")
@@ -573,7 +573,6 @@ class DistNeighborSampler():
     result_map = {}
 
     input_type = output.metadata[2]
-    print(f"input_type: {input_type}")
     
     if self.is_hetero:
       nlabels = {}
@@ -612,15 +611,15 @@ class DistNeighborSampler():
           fut = self.dist_feature.lookup_features(is_node_feat=True, ids=output.node)
           nfeats = await wrap_torch_future(fut) 
           nfeats = nfeats.to(torch.device('cpu'))
-        else:
-          nfeats = None
+        # else:
+        efeats = None
         # Collect edge features.
-        try:
-          fut = self.dist_feature.lookup_features(is_node_feat=False, ids=output.edge)
-          efeats = await wrap_torch_future(fut)
-          efeats = efeats.to(torch.device('cpu'))
-        except KeyError: 
-          efeats = None
+        # try:
+        #   # fut = self.dist_feature.lookup_features(is_node_feat=False, ids=output.edge)
+        #   # efeats = await wrap_torch_future(fut)
+        #   # efeats = efeats.to(torch.device('cpu'))
+        # except KeyError: 
+        #   efeats = None
 
     #print(f"------- 777.4 ----- DistNSampler: _colloate_fn()  return -------")
     output.metadata = (output.metadata[0], output.metadata[1], nfeats, nlabels, efeats)
