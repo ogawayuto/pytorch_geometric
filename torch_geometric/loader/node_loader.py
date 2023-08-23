@@ -190,11 +190,11 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
                                           self.node_sampler.edge_permutation)
             #elif isinstance(self.data, Tuple[LocalFeatureStore, LocalGraphStore]):  # Tuple[FeatureStore, GraphStore]
             else: #TODO: circural import error
-                data = filter_dist_store(*self.data, out.node, out.row,
-                                            out.col, out.edge, self.custom_cls, out.metadata)
+                # data = filter_dist_store(*self.data, out.node, out.row,
+                #                             out.col, out.edge, self.custom_cls, out.metadata)
             #else:
-            #    data = filter_custom_store(*self.data, out.node, out.row,
-            #                out.col, out.edge, self.custom_cls)
+               data = filter_custom_store(*self.data, out.node, out.row,
+                           out.col, out.edge, self.custom_cls)
 
             for key, node in out.node.items():
                 if 'n_id' not in data[key]:

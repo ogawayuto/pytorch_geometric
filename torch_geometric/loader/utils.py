@@ -174,6 +174,7 @@ def filter_hetero_data(
 
     return out
 
+
 def filter_dist_store(
     feature_store: FeatureStore,
     graph_store: GraphStore,
@@ -183,7 +184,7 @@ def filter_dist_store(
     edge_dict: Dict[str, OptTensor],
     custom_cls: Optional[HeteroData] = None,
     meta: Optional[Dict[str, Tensor]] = None
-    ) -> HeteroData:
+) -> HeteroData:
     r"""Constructs a `HeteroData` object from a feature store that only holds
     nodes in `node` end edges in `edge` for each node and edge type,
     respectively. Sorted attribute values are proved as metadata from DistNeighborSampler."""
@@ -209,19 +210,24 @@ def filter_dist_store(
             attr.index = node_dict[attr.group_name]
             required_node_attrs.append(attr)
             data[attr.group_name].num_nodes = attr.index.size(0)
-            
-    for required_attrs, attr_values in zip([required_node_attrs, required_edge_attrs], [nfeats, efeats]):
-        if attr_values is not None:
-            for attr in required_attrs:
-                data[attr.group_name][attr.attr_name] = attr_values[attr.group_name]
-        else:
-            data[attr.group_name][attr.attr_name] = None
-            
+
+    if nfeats is not None:
+        for attr in required_node_attrs:
+            data[attr.group_name][attr.attr_name] = nfeats[attr.group_name]
+    else:
+        data[attr.group_name][attr.attr_name] = None
+
+    if efeats is not None:
+        for attr in required_edge_attrs:
+            pass
+            # ... = efeats[attr.edge_type] #TODO
+
     for label in nlabels:
-        data[label].y = nlabels[label]  
-             
+        data[label].y = nlabels[label]
+
     return data
-    
+
+
 def filter_custom_store(
     feature_store: FeatureStore,
     graph_store: GraphStore,
