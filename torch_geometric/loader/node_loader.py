@@ -2,16 +2,17 @@ from typing import Any, Callable, Iterator, List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
-
 from torch_geometric.data import Data, FeatureStore, GraphStore, HeteroData
 from torch_geometric.loader.base import DataLoaderIterator
 from torch_geometric.loader.mixin import AffinityMixin
 from torch_geometric.loader.utils import (
+    filter_dist_store,
     filter_custom_store,
     filter_data,
     filter_hetero_data,
     get_input_nodes,
     infer_filter_per_worker,
+    
 )
 from torch_geometric.sampler import (
     BaseSampler,
@@ -20,6 +21,9 @@ from torch_geometric.sampler import (
     SamplerOutput,
 )
 from torch_geometric.typing import InputNodes, OptTensor
+#TODO: import error
+#from torch_geometric.distributed.local_feature_store import LocalFeatureStore
+#from torch_geometric.distributed.local_graph_store import LocalGraphStore
 
 
 class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
@@ -184,20 +188,13 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
                 data = filter_hetero_data(self.data, out.node, out.row,
                                           out.col, out.edge,
                                           self.node_sampler.edge_permutation)
-            else:  # Tuple[FeatureStore, GraphStore]
-                if len(out.metadata) > 2:  # DistSamplerOutput
-                    data = HeteroData(
-                        x=out.metadata[2],
-                        y=out.metadata[3],
-                        edge_index={key: torch.stack(
-                            [out.row[key],
-                             out.col[key]])
-                            for key in out.row.keys()},
-                        edge_attr=out.metadata[4]
-                        )
-                else:
-                    data = filter_custom_store(*self.data, out.node, out.row,
-                                               out.col, out.edge, self.custom_cls)
+            #elif isinstance(self.data, Tuple[LocalFeatureStore, LocalGraphStore]):  # Tuple[FeatureStore, GraphStore]
+            else: #TODO: circural import error
+                data = filter_dist_store(*self.data, out.node, out.row,
+                                            out.col, out.edge, self.custom_cls, out.metadata)
+            #else:
+            #    data = filter_custom_store(*self.data, out.node, out.row,
+            #                out.col, out.edge, self.custom_cls)
 
             for key, node in out.node.items():
                 if 'n_id' not in data[key]:

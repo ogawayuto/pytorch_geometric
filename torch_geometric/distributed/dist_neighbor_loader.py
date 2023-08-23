@@ -2,19 +2,14 @@ import torch
 import logging
 from typing import Callable, Optional, Tuple, Dict, Union, List
 
-from torch_geometric.data import Data, HeteroData, GraphStore, FeatureStore
-from torch_geometric.sampler import HeteroSamplerOutput, SamplerOutput
-from torch_geometric.typing import EdgeType, InputNodes, OptTensor, as_str
+from torch_geometric.typing import EdgeType, InputNodes, OptTensor
+from torch_geometric.distributed.dist_neighbor_sampler import DistNeighborSampler
+from torch_geometric.distributed.dist_loader import DistLoader
+from torch_geometric.distributed.local_graph_store import LocalGraphStore
+from torch_geometric.distributed.local_feature_store import LocalFeatureStore
+from torch_geometric.distributed.dist_context import DistRole, DistContext
 from torch_geometric.loader.node_loader import NodeLoader
-
-from .dist_loader import DistLoader
-from .dist_neighbor_sampler import DistNeighborSampler
-from .local_graph_store import LocalGraphStore
-from .local_feature_store import LocalFeatureStore
-from .dist_context import DistContext, DistRole
-
 from torch_geometric.sampler.base import SubgraphType
-from torch_geometric.loader.utils import filter_custom_store
 
 
 class DistNeighborLoader(NodeLoader, DistLoader):
@@ -51,8 +46,8 @@ class DistNeighborLoader(NodeLoader, DistLoader):
                  **kwargs,
                  ):
 
-        assert (isinstance(data[0], FeatureStore) and (
-            data[1], GraphStore)), "Data needs to be Tuple[LocalFeatureStore, LocalGraphStore]"
+        assert (isinstance(data[0], LocalFeatureStore) and (
+            data[1], LocalGraphStore)), "Data needs to be Tuple[LocalFeatureStore, LocalGraphStore]"
         
         assert concurrency >= 0, "concurrency must be greater than 1"
         

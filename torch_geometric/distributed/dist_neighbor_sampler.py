@@ -547,8 +547,6 @@ class DistNeighborSampler():
     r""" Collect labels and features for the sampled subgrarph if necessary,
     and put them into a sample message.
     """
-    result_map = {}
-
     input_type = output.metadata[2]
     
     if self.is_hetero:
@@ -600,8 +598,9 @@ class DistNeighborSampler():
           efeats = None
     #print(f"------- 777.4 ----- DistNSampler: _colloate_fn()  return -------")
     output.metadata = (output.metadata[0], output.metadata[1], nfeats, nlabels, efeats)
-    return output #result_map
-
+    output.row = remap_keys(output.row, self._sampler.to_edge_type)
+    output.col = remap_keys(output.col, self._sampler.to_edge_type)
+    return output
   def __repr__(self):
     return f"{self.__class__.__name__}()-PID{mp.current_process().pid}"
   

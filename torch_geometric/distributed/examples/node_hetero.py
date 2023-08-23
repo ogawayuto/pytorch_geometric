@@ -1,6 +1,3 @@
-import torch_geometric.distributed as pyg_dist
-import torch_geometric.distributed.rpc
-from torch_geometric.typing import Tuple
 from torch_geometric.distributed.dist_context import DistContext, DistRole
 from torch_geometric.distributed.partition import load_partition_info
 
@@ -22,7 +19,8 @@ from torch_geometric.nn import GraphSAGE
 
 from torch_geometric.distributed import (
     LocalFeatureStore,
-    LocalGraphStore
+    LocalGraphStore,
+    DistNeighborLoader
     )
 
 print("\n\n\n\n\n\n")
@@ -118,7 +116,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   train_idx = ('paper', train_idx.split(train_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
   
   num_workers=0
-  train_loader = pyg_dist.DistNeighborLoader(
+  train_loader = DistNeighborLoader(
     data=partition_data,
     num_neighbors=[3, 2, 1],
     input_nodes=train_idx,
@@ -134,13 +132,13 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     filter_per_worker = False,
     current_ctx=current_ctx,
     rpc_worker_names=rpc_worker_names,
-    disjoint=True
+    disjoint=False
   )
 
   print(f"----------- 333 ------------- ")
   # Create distributed neighbor loader for testing.
   test_idx = ('paper', test_idx.split(test_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
-  test_loader = pyg_dist.DistNeighborLoader(
+  test_loader = DistNeighborLoader(
     data=partition_data,
     #data=dataset,
     num_neighbors=[3, 2, 1],
@@ -182,7 +180,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     for batch in train_loader:
       print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
       optimizer.zero_grad()
-      out = model(batch.x, batch.edge_index)[:batch.batch_size].log_softmax(dim=-1)
+      out = model(batch.x_dict, batch.edge_index_dict)[:batch.batch_size].log_softmax(dim=-1)
       loss = F.nll_loss(out, batch.y[:batch.batch_size])
       loss.backward()
       optimizer.step()
