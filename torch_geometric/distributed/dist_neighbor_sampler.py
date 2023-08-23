@@ -271,7 +271,7 @@ class DistNeighborSampler():
 
       for ntype in self._sampler.node_types:
         srcs_dict.update({ntype: torch.empty(0, dtype=torch.int64)})
-        node_dict.update({ntype: OrderedSet(torch.empty(0, dtype=torch.int64))})
+        node_dict.update({ntype: OrderedSet(list)})
         node_with_dupl_dict.update({ntype: torch.empty(0, dtype=torch.int64)})
         batch_dict.update({ntype: torch.empty(0, dtype=torch.int64)}) if self.disjoint else None
         src_batch_dict.update({ntype: torch.empty(0, dtype=torch.int64)}) if self.disjoint else None
@@ -295,7 +295,7 @@ class DistNeighborSampler():
           node_types.extend([src, dst])
         node_types = list(set(node_types))
           
-      node_dict[input_type] = OrderedSet(seed) if not self.disjoint else OrderedSet(tuple(zip(src_batch, seed)))
+      node_dict[input_type] = OrderedSet(seed.tolist()) if not self.disjoint else OrderedSet(tuple(zip(src_batch.tolist(), seed.tolist())))
       num_sampled_nodes_dict[input_type].append(seed.numel())
 
       for i in range(self._sampler.num_hops):
@@ -312,7 +312,7 @@ class DistNeighborSampler():
 
           # remove duplicates
           # TODO: find better method to remove duplicates
-          node_wo_dupl = OrderedSet(out.node) if not self.disjoint else OrderedSet(zip(out.batch, out.node))
+          node_wo_dupl = OrderedSet((out.node).tolist()) if not self.disjoint else OrderedSet(zip((out.batch).tolist(), (out.node).tolist()))
           if len(node_wo_dupl) == 0:
           # no neighbors were sampled
             break
