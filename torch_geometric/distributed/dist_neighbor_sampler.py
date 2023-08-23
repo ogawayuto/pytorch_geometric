@@ -62,33 +62,12 @@ class RpcSamplingCallee(RPCCallBase):
   def rpc_sync(self, *args, **kwargs):
       pass
 
-
-class RpcSubGraphCallee(RPCCallBase):
-  r""" A wrapper for rpc callee that will perform rpc sampling from
-  remote processes.
-  """
-  def __init__(self, sampler: NeighborSampler, device: torch.device):
-    super().__init__()
-    self.sampler = sampler
-    self.device = device
-
-  def rpc_async(self, *args, **kwargs):
-    with_edge = kwargs['with_edge']
-    output = self.sampler.subgraph_op.node_subgraph(args[0].to(self.device),
-                                                    with_edge)
-    eids = output.eids.to('cpu') if with_edge else None
-    return output.nodes.to('cpu'), output.rows.to('cpu'), output.cols.to('cpu'), eids
-
-  def rpc_sync(self, *args, **kwargs):
-      pass
-
 class DistNeighborSampler():
   r""" Asynchronized and distributed neighbor sampler.
 
   Args:
     data (DistDataset): The graph and feature data with partition info.
     num_neighbors (NumNeighbors): The number of sampling neighbors on each hop.
-    with_edge (bool): Whether to sample with edge ids. (default: ``None``).
     collect_features (bool): Whether collect features for sampled results.
       (default: ``None``).
     channel (ChannelBase, optional): The message channel to send sampled
@@ -172,9 +151,6 @@ class DistNeighborSampler():
     # rpc register
     rpc_sample_callee = RpcSamplingCallee(self._sampler, self.device)
     self.rpc_sample_callee_id = rpc_register(rpc_sample_callee)
-
-    rpc_subgraph_callee = RpcSubGraphCallee(self._sampler, self.device)
-    self.rpc_subgraph_callee_id = rpc_register(rpc_subgraph_callee)
 
     print(f"---- 666.3 -------- register_rpc done    ")
     
@@ -347,8 +323,7 @@ class DistNeighborSampler():
           node_dict[dst].update(node_wo_dupl)
 
           node_with_dupl_dict[dst] = torch.cat([node_with_dupl_dict[dst], out.node])
-          edge_dict[etype] = torch.cat([edge_dict[etype], out.edge]) if self.with_edge else None
-
+          edge_dict[etype] = torch.cat([edge_dict[etype], out.edge])
           if self.disjoint:
             src_batch_dict[dst] = torch.Tensor(list(zip(*node_wo_dupl))[0]).type(torch.int64)
             batch_with_dupl_dict[dst] = torch.cat([batch_with_dupl_dict[dst], out.batch])
@@ -405,7 +380,7 @@ class DistNeighborSampler():
 
         node_with_dupl = torch.cat([node_with_dupl, out.node])
 
-        edge = torch.cat([edge, out.edge]) if self.with_edge else None
+        edge = torch.cat([edge, out.edge])
 
         if self.disjoint:
           src_batch = torch.Tensor(list(zip(*node_wo_dupl))[0]).type(torch.int64)
@@ -611,16 +586,15 @@ class DistNeighborSampler():
           fut = self.dist_feature.lookup_features(is_node_feat=True, ids=output.node)
           nfeats = await wrap_torch_future(fut) 
           nfeats = nfeats.to(torch.device('cpu'))
-        # else:
-        efeats = None
+        else:
+          nfeats = None
         # Collect edge features.
-        # try:
-        #   # fut = self.dist_feature.lookup_features(is_node_feat=False, ids=output.edge)
-        #   # efeats = await wrap_torch_future(fut)
-        #   # efeats = efeats.to(torch.device('cpu'))
-        # except KeyError: 
-        #   efeats = None
-
+        if output.edge is not None:
+          fut = self.dist_feature.lookup_features(is_node_feat=False, ids=output.edge)
+          efeats = await wrap_torch_future(fut)
+          efeats = efeats.to(torch.device('cpu'))
+        else:
+          efeats = None
     #print(f"------- 777.4 ----- DistNSampler: _colloate_fn()  return -------")
     output.metadata = (output.metadata[0], output.metadata[1], nfeats, nlabels, efeats)
     return output #result_map
