@@ -120,6 +120,8 @@ class DistNeighborSampler():
     self.temporal_strategy = temporal_strategy
     self.time_attr = time_attr
     self.csc = True # always true?
+    
+    self.with_edge_attr = self.dist_feature.has_edge_attr()
 
 
   def register_sampler_rpc(self):  
@@ -561,24 +563,23 @@ class DistNeighborSampler():
           nlabels[f'{as_str(input_type)}'] = \
             node_labels[output.node[input_type]]
       # Collect node features.
-      
-      for ntype in output.node.keys():
-        try:
+      if output.node is not None:
+        for ntype in output.node.keys():
           fut = self.dist_feature.lookup_features(is_node_feat=True, ids=output.node[ntype], input_type=ntype)
           nfeat = await wrap_torch_future(fut)
           nfeat = nfeat.to(torch.device('cpu'))
           nfeats[ntype] = nfeat
-        except KeyError:
-          nfeats[ntype] = None
+      else:
+        nfeats = None
       # Collect edge features
-      for etype in output.edge.keys():
-        try:
+      if output.edge is not None and self.with_edge_attr:
+        for etype in output.edge.keys():
           fut = self.dist_feature.lookup_features(is_node_feat=False, ids=output.edge[etype], input_type=etype)
           efeat = await wrap_torch_future(fut)
           efeat = efeat.to(torch.device('cpu'))
           efeats[etype] = efeat
-        except KeyError:
-          efeats[etype] = None
+      else:
+        efeats = None
         
     else:
         # Collect node labels.
@@ -591,7 +592,7 @@ class DistNeighborSampler():
         else:
           nfeats = None
         # Collect edge features.
-        if output.edge is not None:
+        if output.edge is not None and self.with_edge_attr:
           fut = self.dist_feature.lookup_features(is_node_feat=False, ids=output.edge)
           efeats = await wrap_torch_future(fut)
           efeats = efeats.to(torch.device('cpu'))
