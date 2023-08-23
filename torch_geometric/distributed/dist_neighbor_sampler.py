@@ -416,12 +416,6 @@ class DistNeighborSampler():
         sampled_nbrs_per_node += out.metadata
 
       row, col = torch.ops.pyg.relabel_neighborhood(seed, node_with_dupl, sampled_nbrs_per_node, self._sampler.num_nodes, batch_with_dupl, self.csc, self.disjoint)
-      # print("sampled nbrs per node: ")
-      # print(sampled_nbrs_per_node)
-      # print("row:")
-      # print(row)
-      # print("col:")
-      # print(col)
 
       node = torch.Tensor(node).type(torch.int64)
       if self.disjoint:
@@ -440,13 +434,13 @@ class DistNeighborSampler():
 
     return sample_output
 
-  def form_local_output(
+  def get_sampled_nbrs_per_node(
     self,
-    results: List[SamplerOutput],
+    outputs: List[SamplerOutput],
   ) -> SamplerOutput:
     p_id = self.dist_graph.partition_idx
 
-    cumm_sampled_nbrs_per_node = results[p_id].metadata
+    cumm_sampled_nbrs_per_node = outputs[p_id].metadata
 
     # do not include seed
     start = np.array(cumm_sampled_nbrs_per_node[1:])
@@ -454,9 +448,9 @@ class DistNeighborSampler():
 
     sampled_nbrs_per_node = list(np.subtract(start, end))
 
-    results[p_id].metadata = (sampled_nbrs_per_node)
+    outputs[p_id].metadata = (sampled_nbrs_per_node)
 
-    return results[p_id]
+    return outputs[p_id]
     
 
   def merge_sampler_outputs(
@@ -470,9 +464,9 @@ class DistNeighborSampler():
 
     partition_ids = partition_ids.tolist()
 
-    node_with_dupl = torch.empty(0, dtype=torch.int64)
-    edge = torch.empty(0, dtype=torch.int64)
-    batch = torch.empty(0, dtype=torch.int64) if self.disjoint else None
+    node_with_dupl = []
+    edge = []
+    batch = []
     sampled_nbrs_per_node = []
 
     p_counters = [0] * self.dist_graph.meta['num_parts']
@@ -482,23 +476,27 @@ class DistNeighborSampler():
       if len(cumm_sampled_nbrs_per_node[p_id]) <= 1:
         continue
       start = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
-      p_counters[p_id] += 1
-      end = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
 
-      node_with_dupl = torch.cat([node_with_dupl, outputs[p_id].node[start: end]])
-      edge = torch.cat([edge, outputs[p_id].edge[start: end]])
-      batch = torch.cat([batch, outputs[p_id].batch[start: end]]) if self.disjoint else None
+      start_edge = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id] - 1] if p_counters[p_id] != 0 else 0
+      p_counters[p_id] += 1
+
+      end = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
+      end_edge = start
+
+      node_with_dupl.append(outputs[p_id].node[start: end])
+      edge.append(outputs[p_id].edge[start_edge: end_edge])
+      batch.append(outputs[p_id].batch[start: end]) if self.disjoint else None
 
       sampled_nbrs_per_node += [end - start]
     
     #print(f"--------YYY.5   --- sampled_nbrs_per_node={sampled_nbrs_per_node}, node_with_dupl={node_with_dupl} ")
     #print(f"------77777.3------  merge_results --------- ")
     return SamplerOutput(
-      node_with_dupl,
+      torch.cat(node_with_dupl),
       None,
       None,
-      edge,
-      batch,
+      torch.cat(edge),
+      torch.cat(batch) if self.disjoint else None,
       metadata=(sampled_nbrs_per_node)
     )
       
@@ -554,7 +552,7 @@ class DistNeighborSampler():
 
     # Only local nodes were sampled
     if local_only:
-      return self.form_local_output(p_outputs)
+      return self.get_sampled_nbrs_per_node(p_outputs)
     # Sampled remote nodes
     res_fut_list = await wrap_torch_future(torch.futures.collect_all(futs))
     for i, res_fut in enumerate(res_fut_list):
