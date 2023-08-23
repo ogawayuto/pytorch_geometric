@@ -160,14 +160,18 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
 
   # Define model and optimizer.
   #torch.cuda.set_device(current_device)
-
+  node_types = ['paper']
+  edge_types = [
+      ('paper', 'cites', 'paper'),
+      ('author', 'writes', 'paper'),
+  ]
   model = HeteroGraphSAGE(
-    in_channels=in_channels,
+    metadata=(node_types, edge_types),
     hidden_channels=256,
     num_layers=3,
-    out_channels=out_channels,
+    output_channels=out_channels,
   ).to(current_device)
-  model = DistributedDataParallel(model) #, device_ids=[current_device.index])
+  #model = DistributedDataParallel(model) #, device_ids=[current_device.index])
   optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
   print(f"----------- 444 ------------- ")
@@ -180,8 +184,11 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     for batch in train_loader:
       print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
       optimizer.zero_grad()
-      out = model(batch.x_dict, batch.edge_index_dict[('author', 'writes', 'paper')])[:batch.batch_size].log_softmax(dim=-1)
-      loss = F.nll_loss(out, batch.y[:batch.batch_size])
+      out = model(batch.x_dict, batch.edge_index_dict)
+      batch_size = batch['paper'].batch_size
+      out = out['paper'][:batch_size]
+      target = batch['paper'].y[:batch_size]
+      loss = F.nll_loss(out, target)
       loss.backward()
       optimizer.step()
       cnt=cnt+1
