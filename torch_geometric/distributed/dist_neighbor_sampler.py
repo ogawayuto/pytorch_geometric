@@ -260,7 +260,7 @@ class DistNeighborSampler():
         raise ValueError("Input type should be defined")
       
       srcs_dict: Dict[NodeType, Tensor] = {}
-      node_dict: Dict[NodeType, OrderedSet[Tensor]] = {}
+      node_dict: Dict[NodeType, OrderedSet[List[int]]] = {}
       node_with_dupl_dict: Dict[NodeType, Tensor] = {}
       edge_dict: Dict[EdgeType, Tensor] = {}
       src_batch_dict: Dict[NodeType, Tensor] = {}
@@ -273,7 +273,7 @@ class DistNeighborSampler():
 
       for ntype in self._sampler.node_types:
         srcs_dict.update({ntype: torch.empty(0, dtype=torch.int64)})
-        node_dict.update({ntype: OrderedSet(list)})
+        node_dict.update({ntype: OrderedSet([])})
         node_with_dupl_dict.update({ntype: torch.empty(0, dtype=torch.int64)})
         batch_dict.update({ntype: torch.empty(0, dtype=torch.int64)}) if self.disjoint else None
         src_batch_dict.update({ntype: torch.empty(0, dtype=torch.int64)}) if self.disjoint else None
@@ -589,8 +589,8 @@ class DistNeighborSampler():
           fut = self.dist_feature.lookup_features(is_node_feat=True, ids=output.node)
           nfeats = await wrap_torch_future(fut) 
           nfeats = nfeats.to(torch.device('cpu'))
-        else:
-          nfeats = None
+        # else:
+        efeats = None
         # Collect edge features.
         if output.edge is not None and self.with_edge_attr:
           fut = self.dist_feature.lookup_features(is_node_feat=False, ids=output.edge)
