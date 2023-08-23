@@ -563,11 +563,13 @@ class DistNeighborSampler():
       # Collect node features.
       
       for ntype in output.node.keys():
-        fut = self.dist_feature.lookup_features(is_node_feat=True, ids=output.node[ntype], input_type=ntype)
-        nfeat = await wrap_torch_future(fut)
-        nfeat = nfeat.to(torch.device('cpu'))
-        nfeats[ntype] = nfeat
-        
+        try:
+          fut = self.dist_feature.lookup_features(is_node_feat=True, ids=output.node[ntype], input_type=ntype)
+          nfeat = await wrap_torch_future(fut)
+          nfeat = nfeat.to(torch.device('cpu'))
+          nfeats[ntype] = nfeat
+        except KeyError:
+          nfeats[ntype] = None
       # Collect edge features
       for etype in output.edge.keys():
         try:
