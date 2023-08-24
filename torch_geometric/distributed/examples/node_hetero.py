@@ -164,7 +164,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   node_types = ['paper']
   edge_types = [
       ('paper', 'cites', 'paper'),
-      ('paper', 'written_by', 'author'),
+      #('paper', 'written_by', 'author'),
       ('author', 'writes', 'paper'),
   ]
   metadata=(node_types, edge_types)

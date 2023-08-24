@@ -48,7 +48,7 @@ def create_dist_data(tmp_path, rank):
 
     data = (feat_store, graph_store)
     if feat_store.meta['is_hetero']:
-        input_nodes = ('v1', feat_store.get_global_id('v1'))
+        input_nodes = ('v0', feat_store.get_global_id('v0'))
     else:
         input_nodes = feat_store.get_global_id(None)
     return data, input_nodes
@@ -98,17 +98,16 @@ def dist_neighbor_loader(
     
     if data[0].meta['is_hetero']:
         for batch in loader:
-            pass
-            # assert isinstance(batch, Data)
-            # assert batch.x_dict.device == device
-            # assert batch.x_dict.size(0) >= 0
-            # assert batch.n_id.size() == (batch.num_nodes, )
-            # assert batch.input_id.numel() == batch.batch_size == 10
-            # assert batch.edge_index.device == device
-            # assert batch.edge_index.min() >= 0
-            # assert batch.edge_index.max() < batch.num_nodes
-            # assert batch.edge_attr.device == device
-            # assert batch.edge_attr.size(0) == batch.edge_index.size(1)
+            assert isinstance(batch, Data)
+            assert batch.x_dict.device == device
+            assert batch.x_dict.size(0) >= 0
+            assert batch.n_id.size() == (batch.num_nodes, )
+            assert batch.input_id.numel() == batch.batch_size == 10
+            assert batch.edge_index.device == device
+            assert batch.edge_index.min() >= 0
+            assert batch.edge_index.max() < batch.num_nodes
+            assert batch.edge_attr.device == device
+            assert batch.edge_attr.size(0) == batch.edge_index.size(1)
             
     else:
         for batch in loader:
@@ -159,7 +158,7 @@ def test_dist_neighbor_loader_homo(
     w0.join()
     w1.join()
 
-
+# TODO: WIP
 @onlyLinux
 @pytest.mark.skipif(not WITH_METIS, reason='Not compiled with METIS support')
 @pytest.mark.parametrize('num_workers', [0, 2])

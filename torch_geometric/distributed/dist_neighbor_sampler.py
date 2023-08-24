@@ -502,6 +502,8 @@ class DistNeighborSampler():
     src_ntype = (edge_type[0] if not self.csc else edge_type[2]) if edge_type is not None else None
     
     partition_ids = self.dist_graph.get_partition_ids_from_nids(srcs, src_ntype)
+    #! TODO: IndexError: index 101 is out of bounds for dimension 0 with size 80 -> when taking node_type > 0, due to offset in index
+
 
     p_outputs: List[SamplerOutput] = [None] * self.dist_graph.meta['num_parts']
     futs: List[torch.futures.Future] = []
