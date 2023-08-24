@@ -38,17 +38,18 @@ class LocalGraphStore(GraphStore):
     def get_partition_ids_from_nids(self, ids: torch.Tensor,
                             node_type: Optional[NodeType]=None):
         # Get the local partition ids of node ids with a specific node type.
-        if self.meta["is_hetero"]:
-            assert node_type is not None
-            return self.node_pb[node_type][ids]
+        # if self.meta["is_hetero"]:
+        #     print(f"node_type: {node_type}, node_pb size: {self.node_pb[node_type].size()}, max idx: {max(ids)}")
+        #     assert node_type is not None
+        #     return self.node_pb[node_type][ids]
         return self.node_pb[ids]
 
     def get_partition_ids_from_eids(self, eids: torch.Tensor,
                             edge_type: Optional[EdgeType]=None):
-        r""" Get the partition ids of edge ids with a specific edge type."""
-        if self.meta["is_hetero"]:
-            assert edge_type is not None
-            return self.edge_pb[edge_type][eids]
+        # r""" Get the partition ids of edge ids with a specific edge type."""
+        # if self.meta["is_hetero"]:
+        #     assert edge_type is not None
+        #     return self.edge_pb[edge_type][eids]
         return self.edge_pb[eids]
 
 

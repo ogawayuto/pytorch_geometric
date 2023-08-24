@@ -32,6 +32,9 @@ def create_dist_data(tmp_path, rank):
     (
         meta, num_partitions, partition_idx, node_pb, edge_pb
     ) = load_partition_info(tmp_path, rank)
+    if meta['is_hetero']:
+        node_pb = torch.cat(list(node_pb.values()))
+        edge_pb = torch.cat(list(edge_pb.values()))
     graph_store.partition_idx = partition_idx
     graph_store.num_partitions = num_partitions
     graph_store.node_pb = node_pb
@@ -47,7 +50,7 @@ def create_dist_data(tmp_path, rank):
     feat_store.meta = meta
 
     data = (feat_store, graph_store)
-    if feat_store.meta['is_hetero']:
+    if meta['is_hetero']:
         input_nodes = ('v0', feat_store.get_global_id('v0'))
     else:
         input_nodes = feat_store.get_global_id(None)
@@ -179,7 +182,7 @@ def test_dist_loader_hetero(
         avg_num_nodes=100,
         avg_degree=3,
         edge_dim=3)[0]
-
+    
     num_parts = 2
     partitioner = Partitioner(data, num_parts, tmp_path)
     partitioner.generate_partition()

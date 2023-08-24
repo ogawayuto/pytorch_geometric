@@ -326,7 +326,7 @@ class DistNeighborSampler():
 
           node_with_dupl_dict[dst] = torch.cat([node_with_dupl_dict[dst], out.node])
           edge_dict[etype] = torch.cat([edge_dict[etype], out.edge])
-          print(out.edge)
+          print(f"out.edge after _sample_one_hop: {out.edge}")
           if self.disjoint:
             src_batch_dict[dst] = torch.Tensor(list(zip(*node_wo_dupl))[0]).type(torch.int64)
             batch_with_dupl_dict[dst] = torch.cat([batch_with_dupl_dict[dst], out.batch])
@@ -342,7 +342,7 @@ class DistNeighborSampler():
       if self.disjoint:
           for ntype in node_types:
             batch_dict[ntype], node_dict[ntype] = node_dict[ntype].t().contiguous()
-      print(edge_dict)
+      print(f"edge_dict at exit node_sample: {edge_dict}")
       sample_output = HeteroSamplerOutput(
         node=node_dict,
         row=row_dict,
@@ -354,7 +354,6 @@ class DistNeighborSampler():
         metadata=metadata
       )
     else:
-
       srcs = seed
 
       node = OrderedSet(srcs.tolist()) if not self.disjoint else OrderedSet(tuple(zip(src_batch.tolist(), srcs.tolist())))
@@ -556,7 +555,7 @@ class DistNeighborSampler():
       nlabels = {}
       nfeats = {}
       efeats = {}
-      
+      #! TODO: Error: output.node has the same indices for all ntypes
       # Collect node labels of input node type.
       if not isinstance(input_type, Tuple):
         node_labels = self.dist_graph.labels
