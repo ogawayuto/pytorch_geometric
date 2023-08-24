@@ -337,8 +337,9 @@ class DistNeighborSampler():
 
       row_dict, col_dict = torch.ops.pyg.hetero_relabel_neighborhood(node_types, edge_types, {input_type: seed}, node_with_dupl_dict, sampled_nbrs_per_node_dict, self._sampler.num_nodes, batch_with_dupl_dict, self.csc, self.disjoint)
 
-      
+      print(f"node_dict 1: {node_dict}")
       node_dict = {ntype: torch.Tensor(node_dict[ntype]).type(torch.int64) for ntype in self._sampler.node_types}
+      print(f"node_dict 2: {node_dict}")
       if self.disjoint:
           for ntype in node_types:
             batch_dict[ntype], node_dict[ntype] = node_dict[ntype].t().contiguous()
