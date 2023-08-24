@@ -48,7 +48,7 @@ def create_dist_data(tmp_path, rank):
 
     data = (feat_store, graph_store)
     if feat_store.meta['is_hetero']:
-        input_nodes = ('v0', feat_store.get_global_id('v0'))
+        input_nodes = ('v1', feat_store.get_global_id('v1'))
     else:
         input_nodes = feat_store.get_global_id(None)
     return data, input_nodes
@@ -177,9 +177,9 @@ def test_dist_loader_hetero(
 
     data = FakeHeteroDataset(
         num_graphs=1,
-        avg_num_nodes=300,
-        avg_degree=5,
-        edge_dim=2)[0]
+        avg_num_nodes=100,
+        avg_degree=3,
+        edge_dim=3)[0]
 
     num_parts = 2
     partitioner = Partitioner(data, num_parts, tmp_path)
