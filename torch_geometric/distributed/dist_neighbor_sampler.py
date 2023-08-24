@@ -437,7 +437,7 @@ class DistNeighborSampler():
     return results[p_id]
     
 
-  def merge_sampler_outputs(
+def merge_sampler_outputs(
     self,
     partition_ids: torch.Tensor,
     outputs: List[SamplerOutput],
@@ -445,12 +445,11 @@ class DistNeighborSampler():
     r""" Merge neighbor sampler outputs from different partitions
     """
     # TODO: move this function to C++
-
     partition_ids = partition_ids.tolist()
 
-    node_with_dupl = torch.empty(0, dtype=torch.int64)
-    edge = torch.empty(0, dtype=torch.int64)
-    batch = torch.empty(0, dtype=torch.int64) if self.disjoint else None
+    node_with_dupl = []
+    edge = []
+    batch = []
     sampled_nbrs_per_node = []
 
     p_counters = [0] * self.dist_graph.meta['num_parts']
@@ -460,26 +459,29 @@ class DistNeighborSampler():
       if len(cumm_sampled_nbrs_per_node[p_id]) <= 1:
         continue
       start = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
-      p_counters[p_id] += 1
-      end = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
 
-      node_with_dupl = torch.cat([node_with_dupl, outputs[p_id].node[start: end]])
-      edge = torch.cat([edge, outputs[p_id].edge[start: end]])
-      batch = torch.cat([batch, outputs[p_id].batch[start: end]]) if self.disjoint else None
+      start_edge = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id] - 1] if p_counters[p_id] != 0 else 0
+      p_counters[p_id] += 1
+
+      end = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
+      end_edge = start
+
+      node_with_dupl.append(outputs[p_id].node[start: end])
+      edge.append(outputs[p_id].edge[start_edge: end_edge])
+      batch.append(outputs[p_id].batch[start: end]) if self.disjoint else None
 
       sampled_nbrs_per_node += [end - start]
-    
+
     #print(f"--------YYY.5   --- sampled_nbrs_per_node={sampled_nbrs_per_node}, node_with_dupl={node_with_dupl} ")
     #print(f"------77777.3------  merge_results --------- ")
     return SamplerOutput(
-      node_with_dupl,
+      torch.cat(node_with_dupl),
       None,
       None,
-      edge,
-      batch,
+      torch.cat(edge),
+      torch.cat(batch) if self.disjoint else None,
       metadata=(sampled_nbrs_per_node)
     )
-      
 
   async def _sample_one_hop(
     self,

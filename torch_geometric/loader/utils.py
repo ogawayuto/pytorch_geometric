@@ -219,8 +219,8 @@ def filter_dist_store(
 
     if efeats is not None:
         for attr in required_edge_attrs:
-            pass
-            # ... = efeats[attr.edge_type] #TODO
+            #TODO: Test
+            data[attr.edge_type] = efeats[attr.edge_type]
 
     for label in nlabels:
         data[label].y = nlabels[label]
