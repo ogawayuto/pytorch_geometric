@@ -326,6 +326,7 @@ class DistNeighborSampler():
 
           node_with_dupl_dict[dst] = torch.cat([node_with_dupl_dict[dst], out.node])
           edge_dict[etype] = torch.cat([edge_dict[etype], out.edge])
+          print(out.edge)
           if self.disjoint:
             src_batch_dict[dst] = torch.Tensor(list(zip(*node_wo_dupl))[0]).type(torch.int64)
             batch_with_dupl_dict[dst] = torch.cat([batch_with_dupl_dict[dst], out.batch])
@@ -341,7 +342,7 @@ class DistNeighborSampler():
       if self.disjoint:
           for ntype in node_types:
             batch_dict[ntype], node_dict[ntype] = node_dict[ntype].t().contiguous()
-
+      print(edge_dict)
       sample_output = HeteroSamplerOutput(
         node=node_dict,
         row=row_dict,
@@ -570,12 +571,14 @@ class DistNeighborSampler():
       else:
         nfeats = None
       # Collect edge features
+      print(f"at out {output.edge}")
       if output.edge is not None and self.with_edge_attr:
         for etype in output.edge.keys():
-          fut = self.dist_feature.lookup_features(is_node_feat=False, ids=output.edge[etype], input_type=etype)
-          efeat = await wrap_torch_future(fut)
-          efeat = efeat.to(torch.device('cpu'))
-          efeats[etype] = efeat
+          if output.edge[etype].numel() > 0:
+            fut = self.dist_feature.lookup_features(is_node_feat=False, ids=output.edge[etype], input_type=etype)
+            efeat = await wrap_torch_future(fut)
+            efeat = efeat.to(torch.device('cpu'))
+            efeats[etype] = efeat
       else:
         efeats = None
         
@@ -598,8 +601,9 @@ class DistNeighborSampler():
           efeats = None
     #print(f"------- 777.4 ----- DistNSampler: _colloate_fn()  return -------")
     output.metadata = (output.metadata[0], output.metadata[1], nfeats, nlabels, efeats)
-    output.row = remap_keys(output.row, self._sampler.to_edge_type)
-    output.col = remap_keys(output.col, self._sampler.to_edge_type)
+    if self.is_hetero:
+      output.row = remap_keys(output.row, self._sampler.to_edge_type)
+      output.col = remap_keys(output.col, self._sampler.to_edge_type)
     return output
   def __repr__(self):
     return f"{self.__class__.__name__}()-PID{mp.current_process().pid}"

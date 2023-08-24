@@ -48,6 +48,7 @@ class NeighborSampler(BaseSampler):
         share_memory: bool = False,
         # Deprecated:
         directed: bool = True,
+        is_hetero: bool = None,
     ):
         if not directed:
             subgraph_type = SubgraphType.induced
@@ -63,9 +64,10 @@ class NeighborSampler(BaseSampler):
 
         self.data_type = DataType.from_data(data)
         self.directed = directed
-        
+        self.is_hetero = is_hetero
         # print(f"---- NeighborSampler: init()  self.data_type={self.data_type}--------")
         if self.data_type == DataType.homogeneous:
+            self.is_hetero = False
             self.num_nodes = data.num_nodes
             self.node_time = data[time_attr] if time_attr else None
 
@@ -78,6 +80,7 @@ class NeighborSampler(BaseSampler):
             # print(f"---- NeighborSampler: init()   self.num_nodes={self.num_nodes},  self.colptr={ self.colptr}, self.row={self.row}, self.perm={self.perm}--------")
 
         elif self.data_type == DataType.heterogeneous:
+            self.is_hetero = True
             self.node_types, self.edge_types = data.metadata()
 
             self.num_nodes = {k: data[k].num_nodes for k in self.node_types}
@@ -98,10 +101,17 @@ class NeighborSampler(BaseSampler):
 
         else:  # self.data_type == DataType.remote
             feature_store, graph_store = data
-
             node_attrs = feature_store.get_all_tensor_attrs()
             edge_attrs = graph_store.get_all_edge_attrs()
-
+            
+            # infere hetero or homo - backwards compatibility hotfix (test failing)
+            try:
+                self.is_hetero = graph_store.meta["is_hetero"]
+            except AttributeError:
+                # assume default is_hetero = True
+                self.is_hetero = True
+                
+                
             if time_attr is not None:
                 for edge_attr in edge_attrs:
                     if edge_attr.layout == EdgeLayout.CSR:
@@ -118,12 +128,14 @@ class NeighborSampler(BaseSampler):
                     copy.copy(attr) for attr in node_attrs
                     if attr.attr_name == time_attr
                 ]
-
-            if not graph_store.meta['is_hetero']: # Homo
-                self.is_hetero = False
+                
+            # Obtain graph metadata:
+            self.node_types = list(set(attr.group_name for attr in node_attrs if type(attr.group_name) == NodeType))
+            self.edge_types = list(set(attr.edge_type for attr in edge_attrs))
+            
+            if self.is_hetero is False: 
 
                 self.num_nodes = max(edge_attrs[0].size)
-
                 self.node_time: Optional[Tensor] = None
                 
                 if time_attr is not None:
@@ -136,12 +148,9 @@ class NeighborSampler(BaseSampler):
                     self.node_time = time_tensor
 
                 self.row, self.colptr, self.perm = graph_store.csc()
-            else:
-                self.is_hetero = True
-                # Obtain graph metadata:
-                self.node_types = list(set(attr.group_name for attr in node_attrs if type(attr.group_name) == NodeType))
-                self.edge_types = list(set(attr.edge_type for attr in edge_attrs))
-    
+                
+            elif self.is_hetero is True: 
+
                 self.num_nodes = {
                     node_type: remote_backend_utils.size(*data, node_type)
                     for node_type in self.node_types
@@ -160,12 +169,13 @@ class NeighborSampler(BaseSampler):
                 # Conversion to/from C++ string type (see above):
                 self.to_rel_type = {k: '__'.join(k) for k in self.edge_types}
                 self.to_edge_type = {v: k for k, v in self.to_rel_type.items()}
-
                 # Convert the graph data into CSC format for sampling:
                 row_dict, colptr_dict, self.perm = graph_store.csc()
                 self.row_dict = remap_keys(row_dict, self.to_rel_type)
                 self.colptr_dict = remap_keys(colptr_dict, self.to_rel_type)
+                       
 
+            
         self.num_neighbors = num_neighbors
         self.num_hops = self.num_neighbors.num_hops
         self.replace = replace

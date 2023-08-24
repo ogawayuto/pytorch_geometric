@@ -16,6 +16,7 @@ import torch.nn.functional as F
 from ogb.nodeproppred import Evaluator
 from torch.nn.parallel import DistributedDataParallel
 from benchmark.utils.hetero_sage import HeteroGraphSAGE
+from torch_geometric.nn import GraphSAGE, to_hetero
 
 from torch_geometric.distributed import (
     LocalFeatureStore,
@@ -165,13 +166,21 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
       ('paper', 'cites', 'paper'),
       ('author', 'writes', 'paper'),
   ]
-  model = HeteroGraphSAGE(
-    metadata=(node_types, edge_types),
+  metadata=(node_types, edge_types)
+  model = GraphSAGE(
+    in_channels=in_channels,
     hidden_channels=256,
     num_layers=3,
-    output_channels=out_channels,
+    out_channels=out_channels,
   ).to(current_device)
-  #model = DistributedDataParallel(model) #, device_ids=[current_device.index])
+  # model = GraphSAGE(
+  #   metadata=(node_types, edge_types),
+  #   hidden_channels=256,
+  #   num_layers=3,
+  #   output_channels=out_channels,
+  # ).to(current_device)
+  model=to_hetero(model, metadata)
+  model = DistributedDataParallel(model) #, device_ids=[current_device.index])
   optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
   print(f"----------- 444 ------------- ")
