@@ -100,15 +100,21 @@ class NodeDict:
 @dataclass
 class BatchDict:
 
-  def __init__(self, node_types):
+  def __init__(self, node_types, disjoint):
     self.src: Dict[NodeType, Tensor] = {}
     self.with_dupl: Dict[NodeType, Tensor] = {}
     self.out: Dict[NodeType, Tensor] = {}
+    self.disjoint = disjoint
 
-    for ntype in node_types:
-      self.src.update({ntype: torch.empty(0, dtype=torch.int64)})
-      self.with_dupl.update({ntype: torch.empty(0, dtype=torch.int64)})
-      self.out.update({ntype: torch.empty(0, dtype=torch.int64)})
+    if not self.disjoint:
+      for ntype in node_types:
+        self.src.update({ntype: torch.empty(0, dtype=torch.int64)})
+        self.with_dupl.update({ntype: torch.empty(0, dtype=torch.int64)})
+        self.out.update({ntype: torch.empty(0, dtype=torch.int64)})
+    else:
+      self.src = None
+      self.with_dupl = None
+      self.out = None
 
 
 class DistNeighborSampler():
@@ -311,7 +317,7 @@ class DistNeighborSampler():
         raise ValueError("Input type should be defined")
       
       node_dict = NodeDict(self._sampler.node_types)
-      batch_dict = BatchDict(self._sampler.node_types) if self.disjoint else None
+      batch_dict = BatchDict(self._sampler.node_types, self.disjoint)
 
       edge_dict: Dict[EdgeType, Tensor] = {}
 
@@ -323,37 +329,29 @@ class DistNeighborSampler():
       for ntype in self._sampler.node_types:
         sampled_nbrs_per_node_dict.update({ntype: []})
         num_sampled_nodes_dict.update({ntype: [0]})
-
-      node_dict.src[input_type] = seed
-      batch_dict.src[input_type] = src_batch
-
-      edge_types = []
-      node_types = []
+      
       for etype in self._sampler.edge_types:
         edge_dict.update({etype: torch.empty(0, dtype=torch.int64)})
         num_sampled_edges_dict.update({etype: []})
 
-        src = etype[0] if not self.csc else etype[2]
-        dst = etype[2] if not self.csc else etype[0]
-        if node_dict.src[src].numel():
-          edge_types.append(etype)
-          node_types.extend([src, dst])
-        node_types = list(set(node_types))
+      node_dict.src[input_type] = seed
+      batch_dict.src[input_type] = src_batch if self.disjoint else None
           
       node_dict.out[input_type] = OrderedSet(seed.tolist()) if not self.disjoint else OrderedSet(tuple(zip(src_batch.tolist(), seed.tolist())))
       num_sampled_nodes_dict[input_type].append(seed.numel())
 
       for i in range(self._sampler.num_hops):
-
         # create tasks
         task_dict = {}
-        for etype in edge_types:
+        for etype in self._sampler.edge_types:
           src = etype[0] if not self.csc else etype[2]
-          seed_time = seed_time_dict.get(src, None) if seed_time_dict.get(src, None) is not None else None
-          one_hop_num = self.num_neighbors[i] if isinstance(self.num_neighbors, List) else self.num_neighbors[etype][i]
 
-          task_dict[etype] = self.event_loop._loop.create_task(
-            self._sample_one_hop(node_dict.src[src], one_hop_num, seed_time, batch_dict.src[src], etype))
+          if node_dict.src[src].numel():
+            seed_time = seed_time_dict.get(src, None) if seed_time_dict.get(src, None) is not None else None
+            one_hop_num = self.num_neighbors[i] if isinstance(self.num_neighbors, List) else self.num_neighbors[etype][i]
+
+            task_dict[etype] = self.event_loop._loop.create_task(
+              self._sample_one_hop(node_dict.src[src], one_hop_num, seed_time, batch_dict.src[src], etype))
 
         for etype, task in task_dict.items():
           out: HeteroSamplerOutput = await task
@@ -381,12 +379,12 @@ class DistNeighborSampler():
           num_sampled_edges_dict[etype].append(len(out.node))
           sampled_nbrs_per_node_dict[dst] += out.metadata
 
-      row_dict, col_dict = torch.ops.pyg.hetero_relabel_neighborhood(node_types, edge_types, {input_type: seed}, node_dict.with_dupl, sampled_nbrs_per_node_dict, self._sampler.num_nodes, batch_dict.with_dupl, self.csc, self.disjoint)
+      row_dict, col_dict = torch.ops.pyg.hetero_relabel_neighborhood(self._sampler.node_types, self._sampler.edge_types, {input_type: seed}, node_dict.with_dupl, sampled_nbrs_per_node_dict, self._sampler.num_nodes, batch_dict.with_dupl, self.csc, self.disjoint)
 
       
       node_dict.out = {ntype: Tensor(node_dict.out[ntype]).type(torch.int64) for ntype in self._sampler.node_types}
       if self.disjoint:
-          for ntype in node_types:
+          for ntype in self._sampler.node_types:
             batch_dict.out[ntype], node_dict.out[ntype] = node_dict.out[ntype].t().contiguous()
 
       sample_output = HeteroSamplerOutput(
@@ -619,7 +617,7 @@ class DistNeighborSampler():
       p_outputs.pop(p_id)
       p_outputs.insert(p_id, res_fut.wait())
 
-    return self.merge_sampler_outputs_wo_reorder(partition_ids, p_outputs)
+    return self.merge_sampler_outputs(partition_ids, p_outputs)
 
   async def _colloate_fn(
     self,
