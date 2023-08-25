@@ -116,7 +116,7 @@ def run_training_proc(
         0) // num_training_procs_per_node)[local_proc_rank]
 
     num_workers = 0
-    concurrency=1
+    concurrency= 1
     train_loader = pyg_dist.DistNeighborLoader(
         data=partition_data,
         num_neighbors=[15, 10, 5],
@@ -156,7 +156,6 @@ def run_training_proc(
         filter_per_worker=False,
         current_ctx=current_ctx,
         rpc_worker_names=rpc_worker_names,
-        disjoint=True
     )
 
     # Define model and optimizer.

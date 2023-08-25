@@ -526,7 +526,40 @@ class DistNeighborSampler():
       torch.cat(batch) if self.disjoint else None,
       metadata=(sampled_nbrs_per_node)
     )
-      
+
+
+  def merge_sampler_outputs_wo_reorder(
+    self,
+    partition_ids: Tensor,
+    outputs: List[SamplerOutput],
+  ) -> SamplerOutput:
+    r""" Merge neighbor sampler outputs from different partitions
+    """
+    # TODO: move this function to C++
+
+    sampled_nbrs_per_node = []
+
+    cumm_sampled_nbrs_per_node = [o.metadata if o is not None else None for o in outputs]
+
+    node_with_dupl = [o.node for o in outputs]
+    edge = [o.edge for o in outputs]
+    batch = [o.batch for o in outputs] if self.disjoint else None
+
+    for i in range(len(cumm_sampled_nbrs_per_node)):
+      # do not include seed
+      start = np.array(cumm_sampled_nbrs_per_node[i][1:])
+      end = np.array(cumm_sampled_nbrs_per_node[i][0:-1])
+
+      sampled_nbrs_per_node += list(np.subtract(start, end))
+
+    return SamplerOutput(
+      torch.cat(node_with_dupl),
+      None,
+      None,
+      torch.cat(edge),
+      torch.cat(batch) if self.disjoint else None,
+      metadata=(sampled_nbrs_per_node)
+    )
 
   async def _sample_one_hop(
     self,
@@ -586,7 +619,7 @@ class DistNeighborSampler():
       p_outputs.pop(p_id)
       p_outputs.insert(p_id, res_fut.wait())
 
-    return self.merge_sampler_outputs(partition_ids, p_outputs)
+    return self.merge_sampler_outputs_wo_reorder(partition_ids, p_outputs)
 
   async def _colloate_fn(
     self,
