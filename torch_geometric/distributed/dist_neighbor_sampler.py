@@ -303,15 +303,16 @@ class DistNeighborSampler():
       for i in range(self._sampler.num_hops):
         task_dict = {}
         for etype in edge_types:
-          src = etype[0] if not self.csc else etype[2]
+          src = etype[0] if not self.csc else etype[2] #v0
           srcs = srcs_dict.get(src, None)
           seed_time = seed_time_dict.get(src, None) if seed_time_dict.get(src, None) is not None else None
           one_hop_num = self.num_neighbors[i] if isinstance(self.num_neighbors, List) else self.num_neighbors[etype][i]
+          print(etype, srcs)
           task_dict[etype] = self.event_loop._loop.create_task(
             self._sample_one_hop(srcs, one_hop_num, seed_time, src_batch_dict[src], etype))
         for etype, task in task_dict.items():
           out: HeteroSamplerOutput = await task
-
+          print(f"RAW out after node_sample: {out}")
           # remove duplicates
           # TODO: find better method to remove duplicates
           node_wo_dupl = OrderedSet((out.node).tolist()) if not self.disjoint else OrderedSet(zip((out.batch).tolist(), (out.node).tolist()))
@@ -337,13 +338,10 @@ class DistNeighborSampler():
 
       row_dict, col_dict = torch.ops.pyg.hetero_relabel_neighborhood(node_types, edge_types, {input_type: seed}, node_with_dupl_dict, sampled_nbrs_per_node_dict, self._sampler.num_nodes, batch_with_dupl_dict, self.csc, self.disjoint)
 
-      print(f"node_dict 1: {node_dict}")
       node_dict = {ntype: torch.Tensor(node_dict[ntype]).type(torch.int64) for ntype in self._sampler.node_types}
-      print(f"node_dict 2: {node_dict}")
       if self.disjoint:
           for ntype in node_types:
             batch_dict[ntype], node_dict[ntype] = node_dict[ntype].t().contiguous()
-      print(f"edge_dict at exit node_sample: {edge_dict}")
       sample_output = HeteroSamplerOutput(
         node=node_dict,
         row=row_dict,
@@ -354,7 +352,7 @@ class DistNeighborSampler():
         num_sampled_edges=num_sampled_edges_dict,
         metadata=metadata
       )
-    else:
+    else: # Homo
       srcs = seed
 
       node = OrderedSet(srcs.tolist()) if not self.disjoint else OrderedSet(tuple(zip(src_batch.tolist(), srcs.tolist())))
@@ -502,8 +500,6 @@ class DistNeighborSampler():
     src_ntype = (edge_type[0] if not self.csc else edge_type[2]) if edge_type is not None else None
     
     partition_ids = self.dist_graph.get_partition_ids_from_nids(srcs, src_ntype)
-    #! TODO: IndexError: index 101 is out of bounds for dimension 0 with size 80 -> when taking node_type > 0, due to offset in index
-
 
     p_outputs: List[SamplerOutput] = [None] * self.dist_graph.meta['num_parts']
     futs: List[torch.futures.Future] = []
@@ -556,7 +552,7 @@ class DistNeighborSampler():
       nlabels = {}
       nfeats = {}
       efeats = {}
-      #! TODO: Error: output.node has the same indices for all ntypes
+      print(f"seed: {output.metadata[0]}, output.node in collate: {output.node}")
       # Collect node labels of input node type.
       if not isinstance(input_type, Tuple):
         node_labels = self.dist_graph.labels
@@ -567,24 +563,25 @@ class DistNeighborSampler():
       if output.node is not None:
         for ntype in output.node.keys():
           fut = self.dist_feature.lookup_features(is_node_feat=True, ids=output.node[ntype], input_type=ntype)
+          print('node fut')
           nfeat = await wrap_torch_future(fut)
           nfeat = nfeat.to(torch.device('cpu'))
           nfeats[ntype] = nfeat
       else:
         nfeats = None
       # Collect edge features
-      print(f"at out {output.edge}")
       if output.edge is not None and self.with_edge_attr:
         for etype in output.edge.keys():
           if output.edge[etype].numel() > 0:
             fut = self.dist_feature.lookup_features(is_node_feat=False, ids=output.edge[etype], input_type=etype)
+            print('edge fut')
             efeat = await wrap_torch_future(fut)
             efeat = efeat.to(torch.device('cpu'))
             efeats[etype] = efeat
       else:
         efeats = None
         
-    else:
+    else: # Homo
         # Collect node labels.
         nlabels = self.dist_graph.labels[output.node] if (self.dist_graph.labels is not None) else None
         # Collect node features.
@@ -601,12 +598,14 @@ class DistNeighborSampler():
           efeats = efeats.to(torch.device('cpu'))
         else:
           efeats = None
+    
     #print(f"------- 777.4 ----- DistNSampler: _colloate_fn()  return -------")
     output.metadata = (output.metadata[0], output.metadata[1], nfeats, nlabels, efeats)
     if self.is_hetero:
       output.row = remap_keys(output.row, self._sampler.to_edge_type)
       output.col = remap_keys(output.col, self._sampler.to_edge_type)
     return output
+  
   def __repr__(self):
     return f"{self.__class__.__name__}()-PID{mp.current_process().pid}"
   
