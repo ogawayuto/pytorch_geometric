@@ -619,7 +619,7 @@ class DistNeighborSampler():
       p_outputs.pop(p_id)
       p_outputs.insert(p_id, res_fut.wait())
 
-    return self.merge_sampler_outputs_wo_reorder(partition_ids, p_outputs)
+    return self.merge_sampler_outputs(partition_ids, p_outputs)
 
   async def _colloate_fn(
     self,
