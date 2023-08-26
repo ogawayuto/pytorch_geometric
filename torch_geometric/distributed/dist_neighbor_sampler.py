@@ -489,20 +489,15 @@ class DistNeighborSampler():
     """
     # TODO: move this function to C++
 
-      node_with_dupl = []
-      edge = []
-      batch = []
-      sampled_nbrs_per_node = []
+    partition_ids = partition_ids.tolist()
 
     node_with_dupl = []
     edge = []
     batch = []
     sampled_nbrs_per_node = []
 
-      for p_id in partition_ids:
-        if len(cumm_sampled_nbrs_per_node[p_id]) <= 1:
-          continue
-        start = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
+    p_counters = [0] * self.dist_graph.meta['num_parts']
+    cumm_sampled_nbrs_per_node = [o.metadata if o is not None else None for o in outputs]
 
     for p_id in partition_ids:
       if len(cumm_sampled_nbrs_per_node[p_id]) <= 1:
