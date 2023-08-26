@@ -207,8 +207,7 @@ def run_training_proc(
         print("********************************************************************************************** ")
         print("\n\n\n\n\n\n")
 
-        Test accuracy.
-        if epoch == 0 or epoch > (epochs // 2):
+        # Test accuracy.
         if epoch % 5 == 0:  # or epoch > (epochs // 2):
             test_acc = test(model, test_loader, dataset_name)
             f.write(
