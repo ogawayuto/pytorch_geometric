@@ -647,8 +647,8 @@ class DistNeighborSampler():
             nfeat = await wrap_torch_future(fut)
             nfeat = nfeat.to(torch.device('cpu'))
             nfeats[ntype] = nfeat
-      else:
-        nfeats = None
+        else:
+          nfeats[ntype] = None
       # Collect edge features
       if output.edge is not None and self.with_edge_attr:
         for etype in output.edge.keys():
@@ -659,8 +659,8 @@ class DistNeighborSampler():
             efeat = await wrap_torch_future(fut)
             efeat = efeat.to(torch.device('cpu'))
             efeats[etype] = efeat
-      else:
-        efeats = None
+        else:
+          efeats[etype] = None
         
     else: # Homo
         # Collect node labels.
