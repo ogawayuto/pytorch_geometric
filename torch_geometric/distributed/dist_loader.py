@@ -92,7 +92,7 @@ class DistLoader:
             # close rpc & worker group at exit
             atexit.register(close_sampler, worker_id, self.neighbor_sampler)
             # wait for all workers to init
-            global_barrier()
+            global_barrier(timeout=10)
 
         except RuntimeError:
             raise RuntimeError(

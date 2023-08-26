@@ -210,7 +210,6 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     start = time.time()
     cnt=0
     for batch in train_loader:
-
       print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
       optimizer.zero_grad()
       out = model(batch.x, batch.edge_index)[:batch.batch_size].log_softmax(dim=-1)
