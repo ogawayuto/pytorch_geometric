@@ -37,8 +37,8 @@ def test(model, test_loader, dataset_name):
         xs.append(x.cpu())
         y_true.append(batch.y[:batch.batch_size].cpu())
         print(f"---- test():  i={i}, batch={batch} ----")
-        if i == len(test_loader)-1:
-            torch.distributed.barrier()
+        # if i == len(test_loader)-1:
+        #     torch.distributed.barrier()
     xs = [t.to(device) for t in xs]
     y_true = [t.to(device) for t in y_true]
     y_pred = torch.cat(xs, dim=0).argmax(dim=-1, keepdim=True)
@@ -192,8 +192,8 @@ def run_training_proc(
             loss.backward()
             optimizer.step()
             cnt = cnt+1
-            if i == len(train_loader)-1:
-                torch.distributed.barrier()
+            # if i == len(train_loader)-1:
+            #     torch.distributed.barrier()
         print(f"---- cnt ={cnt}, after batch loop ")
         # torch.cuda.empty_cache() # empty cache when GPU memory is not efficient.
         # torch.cuda.synchronize()

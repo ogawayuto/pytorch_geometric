@@ -55,10 +55,14 @@ class DistLoader:
         self.rpc_timeout = rpc_timeout
         if self.rpc_timeout is not None:
             assert self.rpc_timeout > 0
-
+            
+        # init rpc in main process
         if self.num_workers == 0:
             self.worker_init_fn(0)
             
+        # close rpc & worker group at exit
+        atexit.register(close_sampler, 111, self.neighbor_sampler)   
+         
     def channel_get(self, out) -> Union[SamplerOutput, HeteroSamplerOutput]:
         if self.channel:
             out = self.channel.get()
@@ -88,7 +92,7 @@ class DistLoader:
             self.neighbor_sampler.register_sampler_rpc()
             self.neighbor_sampler.init_event_loop()
             # close rpc & worker group at exit
-            atexit.register(close_sampler, worker_id, self.neighbor_sampler)
+            #atexit.register(close_sampler, worker_id, self.neighbor_sampler)
             # wait for all workers to init
             global_barrier(timeout=10)
 
