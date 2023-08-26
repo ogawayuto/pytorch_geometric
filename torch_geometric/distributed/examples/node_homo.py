@@ -192,7 +192,7 @@ def run_training_proc(
             loss.backward()
             optimizer.step()
             cnt = cnt+1
-            if i == len(test_loader)-1:
+            if i == len(train_loader)-1:
                 torch.distributed.barrier()
         print(f"---- cnt ={cnt}, after batch loop ")
         # torch.cuda.empty_cache() # empty cache when GPU memory is not efficient.
