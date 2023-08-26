@@ -244,7 +244,7 @@ if __name__ == '__main__':
   parser.add_argument(
     "--in_channel",
     type=int,
-    default=100,
+    default=128,
     help="in channel of the dataset, default is for ogbn-products"
   )
   parser.add_argument(
