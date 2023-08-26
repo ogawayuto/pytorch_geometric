@@ -640,12 +640,13 @@ class DistNeighborSampler():
       # Collect node features.
       if output.node is not None:
         for ntype in output.node.keys():
-          fut = self.dist_feature.lookup_features(is_node_feat=True, ids=output.node[ntype], input_type=ntype)
-          print('node fut')
-          print({max(output.node[ntype])}, {self.dist_feature.node_feat_pb.size()})
-          nfeat = await wrap_torch_future(fut)
-          nfeat = nfeat.to(torch.device('cpu'))
-          nfeats[ntype] = nfeat
+          if output.node[ntype].numel() > 0:
+            fut = self.dist_feature.lookup_features(is_node_feat=True, ids=output.node[ntype], input_type=ntype)
+            print('node fut')
+            print({max(output.node[ntype])}, {self.dist_feature.node_feat_pb.size()})
+            nfeat = await wrap_torch_future(fut)
+            nfeat = nfeat.to(torch.device('cpu'))
+            nfeats[ntype] = nfeat
       else:
         nfeats = None
       # Collect edge features
