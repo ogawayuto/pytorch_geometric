@@ -115,7 +115,8 @@ def run_training_proc(
     train_idx = train_idx.split(train_idx.size(
         0) // num_training_procs_per_node)[local_proc_rank]
 
-    num_workers = 8
+    num_workers = 2
+    concurrency = 10
     train_loader = pyg_dist.DistNeighborLoader(
         data=partition_data,
         num_neighbors=[15, 10, 5],
@@ -125,7 +126,7 @@ def run_training_proc(
         collect_features=True,
         device=torch.device('cpu'),
         num_workers=num_workers,
-        concurrency=2,
+        concurrency=concurrency,
         master_addr=master_addr,
         master_port=train_loader_master_port,
         async_sampling=True,
@@ -148,7 +149,7 @@ def run_training_proc(
         collect_features=True,
         device=torch.device('cpu'),
         num_workers=num_workers,
-        concurrency=2,
+        concurrency=concurrency,
         master_addr=master_addr,
         master_port=test_loader_master_port,
         async_sampling=True,
@@ -206,20 +207,20 @@ def run_training_proc(
         print("********************************************************************************************** ")
         print("\n\n\n\n\n\n")
 
-        # Test accuracy.
-        # if epoch == 0 or epoch > (epochs // 2):
-        # if epoch % 5 == 0:  # or epoch > (epochs // 2):
-        #     test_acc = test(model, test_loader, dataset_name)
-        #     f.write(
-        #         f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
-        #     print(
-        #         f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
+        Test accuracy.
+        if epoch == 0 or epoch > (epochs // 2):
+        if epoch % 5 == 0:  # or epoch > (epochs // 2):
+            test_acc = test(model, test_loader, dataset_name)
+            f.write(
+                f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
+            print(
+                f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
 
-        #     print("\n\n\n\n\n\n")
-        #     print("********************************************************************************************** ")
-        # print("\n\n\n\n\n\n")
-        # # torch.cuda.synchronize()
-        # torch.distributed.barrier()
+            print("\n\n\n\n\n\n")
+            print("********************************************************************************************** ")
+        print("\n\n\n\n\n\n")
+        # torch.cuda.synchronize()
+        torch.distributed.barrier()
 
     print(f"----------- 555 ------------- ")
 
