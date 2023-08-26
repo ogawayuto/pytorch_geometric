@@ -1,5 +1,4 @@
 import torch
-import logging
 from typing import Callable, Optional, Tuple, Dict, Union, List
 
 from torch_geometric.typing import EdgeType, InputNodes, OptTensor
@@ -34,7 +33,6 @@ class DistNeighborLoader(NodeLoader, DistLoader):
                  temporal_strategy: str = 'uniform',
                  time_attr: Optional[str] = None,
                  transform: Optional[Callable] = None,
-                 transform_sampler_output: Optional[Callable] = None,
                  is_sorted: bool = False,
                  directed: bool = True,  # Deprecated.
                  with_edge: bool = True,
@@ -76,9 +74,11 @@ class DistNeighborLoader(NodeLoader, DistLoader):
                 device=device,
                 channel=channel,
                 concurrency=concurrency,
-                collect_features=collect_features
+                collect_features=collect_features,
             )
-
+            
+        self.neighbor_sampler = neighbor_sampler
+        
         DistLoader.__init__(self,
                             neighbor_sampler=neighbor_sampler,
                             channel=channel,
@@ -99,72 +99,6 @@ class DistNeighborLoader(NodeLoader, DistLoader):
                             worker_init_fn=self.worker_init_fn,
                             **kwargs
                             )
-
-    # def filter_fn(
-    #     self,
-    #     out: Union[SamplerOutput, HeteroSamplerOutput],
-    # ) -> Union[Data, HeteroData]:
-    #     r"""Joins the sampled nodes with their corresponding features,
-    #     returning the resulting :class:`~torch_geometric.data.Data` or
-    #     :class:`~torch_geometric.data.HeteroData` object to be used downstream.
-    #     """
-    #     # TODO: Align dist_sampler metadata output with original pyg sampler, such that filter_fn() from the NodeLoader can be used
-    #     if self.channel:
-    #         out = self.channel.get()
-    #         logging.debug(
-    #             f'{repr(self)} retrieved Sampler result from PyG MSG channel')
-
-    #     if isinstance(out, SamplerOutput):
-    #         data = Data(x=out.metadata['nfeats'],
-    #                     edge_index=torch.stack([out.row, out.col]),
-    #                     edge_attr=out.metadata['efeats'],
-    #                     y=out.metadata['nlabels']
-    #                     )
-
-    #         data.edge = out.edge
-    #         data.node = out.node
-    #         data.batch = out.batch 
-    #         data.num_sampled_nodes = out.num_sampled_nodes
-    #         data.num_sampled_edges = out.num_sampled_edges
-
-    #         try:
-    #             data.batch_size = out.metadata['bs']
-    #             data.input_id = out.metadata['input_id']
-    #             data.seed_time = out.metadata['seed_time']
-    #         except KeyError:
-    #             pass
-
-    #     elif isinstance(out, HeteroSamplerOutput):
-    #         # data: Tuple[FeatureStore, GraphStore]
-    #         data = filter_custom_store(*self.data, out.node, out.row,
-    #                                    out.col, out.edge, self.custom_cls)
-
-    #         for key, node in out.node.items():
-    #             if 'n_id' not in data[key]:
-    #                 data[key].n_id = node
-
-    #         for key, edge in (out.edge or {}).items():
-    #             if 'e_id' not in data[key]:
-    #                 data[key].e_id = edge
-
-    #         data.set_value_dict('batch', out.batch)
-    #         data.set_value_dict('num_sampled_nodes', out.num_sampled_nodes)
-    #         data.set_value_dict('num_sampled_edges', out.num_sampled_edges)
-
-    #         input_type = self.input_data.input_type
-
-    #         try:
-    #             data[input_type].input_id = out.metadata['bs']
-    #             data[input_type].seed_time = out.metadata['input_id']
-    #             data[input_type].batch_size = out.metadata['seed_time']
-    #         except KeyError:
-    #             pass
-
-    #     else:
-    #         raise TypeError(f"'{self.__class__.__name__}'' found invalid "
-    #                         f"type: '{type(out)}'")
-
-    #     return data if self.transform is None else self.transform(data)
 
     def __repr__(self):
         return DistLoader.__repr__(self)

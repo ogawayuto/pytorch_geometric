@@ -5,14 +5,13 @@ import torch.multiprocessing as mp
 import os
 from typing import Optional, Dict, Union, List
 from torch_geometric.sampler import SamplerOutput, HeteroSamplerOutput
-from .rpc import init_rpc, global_barrier
-from .dist_neighbor_sampler import DistNeighborSampler, close_sampler
-from .dist_context import DistContext, DistRole
+from torch_geometric.distributed.rpc import init_rpc, global_barrier
+from torch_geometric.distributed.dist_neighbor_sampler import DistNeighborSampler, close_sampler
+from torch_geometric.distributed.dist_context import DistContext, DistRole
 
-class DistLoader():
+class DistLoader:
 
     def __init__(self,
-                 neighbor_sampler: DistNeighborSampler,
                  current_ctx: DistContext,
                  rpc_worker_names: Dict[DistRole, List[str]],
                  master_addr: str,
@@ -21,18 +20,13 @@ class DistLoader():
                  channel: mp.Queue(),
                  num_rpc_threads: Optional[int] = 16,
                  rpc_timeout: Optional[int] = 180,
-                 device: Optional[torch.device] = torch.device('cpu'),
                  **kwargs,
                  ):
 
-        self.neighbor_sampler = neighbor_sampler
         self.channel = channel
-
         self.current_ctx = current_ctx
         self.rpc_worker_names = rpc_worker_names
         self.pid = mp.current_process().pid
-        self.device = device
-        self.batch_size = kwargs.get('batch_size', 64)
         self.num_workers = kwargs.get('num_workers', 0)
 
         if master_addr is not None:
@@ -53,8 +47,8 @@ class DistLoader():
                 f"'{self.__class__.__name__}': missing master port "
                 "for rpc communication, try to provide it or set it "
                 "with environment variable 'MASTER_ADDR'")
-        print(
-            f"{repr(self)} MASTER_ADDR: {self.master_addr} MASTER_PORT: {self.master_port}")
+        logging.info(
+            f"{self} MASTER_ADDR: {self.master_addr} MASTER_PORT: {self.master_port}")
 
         self.num_rpc_threads = num_rpc_threads
         if self.num_rpc_threads is not None:
@@ -98,11 +92,10 @@ class DistLoader():
             atexit.register(close_sampler, worker_id, self.neighbor_sampler)
             # wait for all workers to init
             global_barrier()
-            print(f" {repr(self)} EXECUTED WORKER INIT FN")
 
         except RuntimeError:
             raise RuntimeError(
-                f"init_fn() defined in {repr(self)} didn't initialize the worker_loop of {repr(self.neighbor_sampler)}")
+                f"init_fn() defined in {self} didn't initialize the worker_loop of {self.neighbor_sampler}")
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}()-PID{self.pid}@{self.device}"
+        return f"{self.__class__.__name__}()-PID{self.pid}"

@@ -179,7 +179,6 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     filter_per_worker=False,
     shuffle=False,
     drop_last=False,
-    with_edge=True,
     collect_features=True,
     device=current_device,
     async_sampling=True,
@@ -218,8 +217,8 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
       loss.backward()
       optimizer.step()
       cnt=cnt+1
-      if cnt == 10:
-        break
+      # if cnt == 10:
+      #   break
     print(f"---- cnt ={cnt}, after batch loop ")
     # torch.cuda.empty_cache() # empty cache when GPU memory is not efficient.
     torch.cuda.synchronize()
