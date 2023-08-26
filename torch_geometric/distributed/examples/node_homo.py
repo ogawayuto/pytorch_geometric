@@ -117,6 +117,7 @@ def run_training_proc(
 
     num_workers = 2
     concurrency = 10
+    
     train_loader = pyg_dist.DistNeighborLoader(
         data=partition_data,
         num_neighbors=[15, 10, 5],
@@ -182,7 +183,7 @@ def run_training_proc(
         print(f"TEST LOADER CHANNEL: {test_loader.channel.empty()}")
 
         for batch in train_loader:
-            # print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
+            print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
             optimizer.zero_grad()
             out = model(batch.x, batch.edge_index)[
                 :batch.batch_size].log_softmax(dim=-1)

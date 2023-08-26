@@ -76,7 +76,8 @@ class DistNeighborLoader(NodeLoader, DistLoader):
                 concurrency=concurrency,
                 collect_features=collect_features,
             )
-                    
+        self.neighbor_sampler = neighbor_sampler
+                     
         DistLoader.__init__(self,
                             neighbor_sampler=neighbor_sampler,
                             channel=channel,

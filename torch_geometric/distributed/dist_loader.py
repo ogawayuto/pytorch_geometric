@@ -12,7 +12,6 @@ from torch_geometric.distributed.dist_context import DistContext, DistRole
 class DistLoader:
 
     def __init__(self,
-                 neighbor_sampler: DistNeighborSampler,
                  current_ctx: DistContext,
                  rpc_worker_names: Dict[DistRole, List[str]],
                  master_addr: str,
@@ -23,7 +22,6 @@ class DistLoader:
                  rpc_timeout: Optional[int] = 180,
                  **kwargs,
                  ):
-        self.neighbor_sampler = neighbor_sampler
         self.channel = channel
         self.current_ctx = current_ctx
         self.rpc_worker_names = rpc_worker_names
