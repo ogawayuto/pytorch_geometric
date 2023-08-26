@@ -212,11 +212,13 @@ def filter_dist_store(
             data[attr.group_name].num_nodes = attr.index.size(0)
 
     for attr in required_node_attrs:
-        data[attr.group_name][attr.attr_name] = nfeats[attr.group_name]
+        if nfeats[attr.group_name] is not None:
+            data[attr.group_name][attr.attr_name] = nfeats[attr.group_name]            
 
     if efeats:
         for attr in required_edge_attrs:
-            data[attr.edge_type].edge_attr = efeats[attr.edge_type]
+            if efeats[attr.edge_type] is not None:
+                data[attr.edge_type].edge_attr = efeats[attr.edge_type]
             
     for label in nlabels:
         data[label].y = nlabels[label]
