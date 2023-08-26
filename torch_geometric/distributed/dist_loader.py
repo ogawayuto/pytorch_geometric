@@ -21,7 +21,20 @@ class DistLoader:
                  rpc_timeout: Optional[int] = 180,
                  **kwargs,
                  ):
-        
+        """
+        Args:
+            current_ctx (DistContext): _description_
+            rpc_worker_names (Dict[DistRole, List[str]]): _description_
+            master_addr (str): _description_
+            master_port (Union[int, str]): _description_
+            channel (mp.Queue): _description_
+            num_rpc_threads (Optional[int], optional): _description_. Defaults to 16.
+            rpc_timeout (Optional[int], optional): _description_. Defaults to 180.
+
+        Raises:
+            ValueError: _description_
+            ValueError: _description_
+        """        
         self.channel = channel
         self.current_ctx = current_ctx
         self.rpc_worker_names = rpc_worker_names

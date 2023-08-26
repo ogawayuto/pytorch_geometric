@@ -21,10 +21,6 @@ from torch_geometric.sampler import (
     SamplerOutput,
 )
 from torch_geometric.typing import InputNodes, OptTensor
-#TODO: import error
-#from torch_geometric.distributed.local_feature_store import LocalFeatureStore
-#from torch_geometric.distributed.local_graph_store import LocalGraphStore
-
 
 class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
     r"""A data loader that performs mini-batch sampling from node information,
@@ -188,13 +184,14 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
                 data = filter_hetero_data(self.data, out.node, out.row,
                                           out.col, out.edge,
                                           self.node_sampler.edge_permutation)
-            #elif isinstance(self.data, Tuple[LocalFeatureStore, LocalGraphStore]):  # Tuple[FeatureStore, GraphStore]
-            else: #TODO: circural import error
-                data = filter_dist_store(*self.data, out.node, out.row,
-                                            out.col, out.edge, self.custom_cls, out.metadata)
-            #else:
-            #    data = filter_custom_store(*self.data, out.node, out.row,
-            #                out.col, out.edge, self.custom_cls)
+            #elif isinstance(self.data, Tuple[LocalFeatureStore, LocalGraphStore]):  # 
+            else: #Tuple[FeatureStore, GraphStore]
+                if not isinstance(self.node_sampler, BaseSampler): #DistSampler
+                    data = filter_dist_store(*self.data, out.node, out.row,
+                                                out.col, out.edge, self.custom_cls, out.metadata)
+                else:
+                    data = filter_custom_store(*self.data, out.node, out.row,
+                                out.col, out.edge, self.custom_cls)
 
             for key, node in out.node.items():
                 if 'n_id' not in data[key]:
