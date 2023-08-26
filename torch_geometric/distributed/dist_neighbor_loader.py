@@ -47,7 +47,7 @@ class DistNeighborLoader(NodeLoader, DistLoader):
         assert (isinstance(data[0], LocalFeatureStore) and (
             data[1], LocalGraphStore)), "Data needs to be Tuple[LocalFeatureStore, LocalGraphStore]"
         
-        assert concurrency >= 0, "concurrency must be greater than 1"
+        assert concurrency >= 1, "concurrency must be greater than 1"
         
         if input_time is not None and time_attr is None:
             raise ValueError("Received conflicting 'input_time' and "

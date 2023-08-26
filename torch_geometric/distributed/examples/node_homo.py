@@ -37,7 +37,7 @@ def test(model, test_loader, dataset_name):
         xs.append(x.cpu())
         y_true.append(batch.y[:batch.batch_size].cpu())
         print(f"---- test():  i={i}, batch={batch} ----")
-        del batch
+    torch.distributed.barrier()
     xs = [t.to(device) for t in xs]
     y_true = [t.to(device) for t in y_true]
     y_pred = torch.cat(xs, dim=0).argmax(dim=-1, keepdim=True)
