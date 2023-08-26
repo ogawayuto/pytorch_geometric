@@ -370,7 +370,7 @@ class DistNeighborSampler():
 
           node_dict.with_dupl[dst] = torch.cat([node_dict.with_dupl[dst], out.node])
           edge_dict[etype] = torch.cat([edge_dict[etype], out.edge])
-          #print(f"out.edge after _sample_one_hop: {out.edge}")
+          print(f"out.edge after _sample_one_hop: {out.edge}")
           if self.disjoint:
             batch_dict.src[dst] = Tensor(list(zip(*node_wo_dupl))[0]).type(torch.int64)
             batch_dict.with_dupl[dst] = torch.cat([batch_dict.with_dupl[dst], out.batch])

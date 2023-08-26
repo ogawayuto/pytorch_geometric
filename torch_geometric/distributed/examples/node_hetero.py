@@ -190,16 +190,16 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     cnt=0
     for batch in train_loader:
       pass
-      # print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
-      # optimizer.zero_grad()
-      # out = model(batch.x_dict, batch.edge_index_dict)
-      # batch_size = batch['paper'].batch_size
-      # out = out['paper'][:batch_size]
-      # target = batch['paper'].y[:batch_size]
-      # loss = F.nll_loss(out, target)
-      # loss.backward()
-      # optimizer.step()
-      # cnt=cnt+1
+      print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
+      optimizer.zero_grad()
+      out = model(batch.x_dict, batch.edge_index_dict)
+      batch_size = batch['paper'].batch_size
+      out = out['paper'][:batch_size]
+      target = batch['paper'].y[:batch_size]
+      loss = F.nll_loss(out, target)
+      loss.backward()
+      optimizer.step()
+      cnt=cnt+1
       # # if cnt == 10:
       # #   break
     print(f"---- cnt ={cnt}, after batch loop ")

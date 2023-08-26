@@ -35,17 +35,16 @@ def create_dist_data(tmp_path, rank):
     if meta['is_hetero']:
         node_pb = torch.cat(list(node_pb.values()))
         edge_pb = torch.cat(list(edge_pb.values()))
-
-    # TODO: labels based on graph_store???
+    else:
+        edge_attrs = graph_store.get_all_edge_attrs()[0]
+        graph_store.labels = torch.arange(edge_attrs.size[0])
+        
     graph_store.partition_idx = partition_idx
     graph_store.num_partitions = num_partitions
     graph_store.node_pb = node_pb
     graph_store.edge_pb = edge_pb
     graph_store.meta = meta
     
-    edge_attrs = graph_store.get_all_edge_attrs()[0]
-    graph_store.labels = torch.arange(edge_attrs.size[0])
-
     feat_store.partition_idx = partition_idx
     feat_store.num_partitions = num_partitions
     feat_store.node_feat_pb = node_pb
@@ -103,19 +102,21 @@ def dist_neighbor_loader(
     assert isinstance(loader.neighbor_sampler, DistNeighborSampler)
     
     if data[0].meta['is_hetero']:
-        for batch in loader:
-            pass
-            # assert isinstance(batch, HeteroData)
-            # assert batch.x_dict.device == device
-            # assert batch.x_dict.size(0) >= 0
-            # assert batch.n_id.size() == (batch.num_nodes, )
-            # assert batch.input_id.numel() == batch.batch_size == 10
-            # assert batch.edge_index.device == device
-            # assert batch.edge_index.min() >= 0
-            # assert batch.edge_index.max() < batch.num_nodes
-            # assert batch.edge_attr.device == device
-            # assert batch.edge_attr.size(0) == batch.edge_index.size(1)
-            
+        for batch in loader:            
+            assert isinstance(batch, HeteroData)
+            assert batch['v0'].input_id.numel() == batch['v0'].batch_size == 10
+            assert len(batch.node_types) == 2
+            for ntype in batch.node_types:
+                assert torch.equal(batch[ntype].x, batch.x_dict[ntype])
+                assert batch.x_dict[ntype].device == device
+                assert batch.x_dict[ntype].size(0) >= 0
+                assert batch[ntype].n_id.size() == (batch[ntype].num_nodes, )
+            assert len(batch.edge_types) == 4
+            for etype in batch.edge_types[:2]:
+                assert batch[etype].edge_index.device == device
+                assert batch[etype].edge_attr.device == device
+                assert batch[etype].edge_attr.size(0) == batch[etype].edge_index.size(1)
+        
     else:
         for batch in loader:
             assert isinstance(batch, Data)
@@ -186,6 +187,7 @@ def test_dist_loader_hetero(
         avg_num_nodes=100,
         avg_degree=3,
         num_node_types=2,
+        num_edge_types=4,
         edge_dim=2)[0]
     
     num_parts = 2
