@@ -184,7 +184,6 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
                 data = filter_hetero_data(self.data, out.node, out.row,
                                           out.col, out.edge,
                                           self.node_sampler.edge_permutation)
-            #elif isinstance(self.data, Tuple[LocalFeatureStore, LocalGraphStore]):  # 
             else: #Tuple[FeatureStore, GraphStore]
                 if not isinstance(self.node_sampler, BaseSampler): #DistSampler
                     data = filter_dist_store(*self.data, out.node, out.row,
