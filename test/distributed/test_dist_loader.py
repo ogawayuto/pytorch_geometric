@@ -184,7 +184,8 @@ def test_dist_loader_hetero(
     data = FakeHeteroDataset(
         num_graphs=1,
         avg_num_nodes=1000,
-        avg_degree=5,
+        avg_degree=3,
+        num_node_types=2,
         edge_dim=2)[0]
     
     num_parts = 2

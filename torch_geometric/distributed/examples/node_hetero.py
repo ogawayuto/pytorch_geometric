@@ -175,12 +175,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     num_layers=3,
     out_channels=out_channels,
   ).to(current_device)
-  # model = GraphSAGE(
-  #   metadata=(node_types, edge_types),
-  #   hidden_channels=256,
-  #   num_layers=3,
-  #   output_channels=out_channels,
-  # ).to(current_device)
+
   model=to_hetero(model, metadata)
   model = DistributedDataParallel(model) #, device_ids=[current_device.index])
   optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
@@ -193,18 +188,19 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     start = time.time()
     cnt=0
     for batch in train_loader:
-      print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
-      optimizer.zero_grad()
-      out = model(batch.x_dict, batch.edge_index_dict)
-      batch_size = batch['paper'].batch_size
-      out = out['paper'][:batch_size]
-      target = batch['paper'].y[:batch_size]
-      loss = F.nll_loss(out, target)
-      loss.backward()
-      optimizer.step()
-      cnt=cnt+1
-      # if cnt == 10:
-      #   break
+      pass
+      # print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
+      # optimizer.zero_grad()
+      # out = model(batch.x_dict, batch.edge_index_dict)
+      # batch_size = batch['paper'].batch_size
+      # out = out['paper'][:batch_size]
+      # target = batch['paper'].y[:batch_size]
+      # loss = F.nll_loss(out, target)
+      # loss.backward()
+      # optimizer.step()
+      # cnt=cnt+1
+      # # if cnt == 10:
+      # #   break
     print(f"---- cnt ={cnt}, after batch loop ")
     # torch.cuda.empty_cache() # empty cache when GPU memory is not efficient.
     #torch.cuda.synchronize()
