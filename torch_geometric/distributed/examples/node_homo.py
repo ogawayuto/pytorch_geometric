@@ -37,8 +37,9 @@ def test(model, test_loader, dataset_name):
         xs.append(x.cpu())
         y_true.append(batch.y[:batch.batch_size].cpu())
         print(f"---- test():  i={i}, batch={batch} ----")
-        # if i == len(test_loader)-1:
-        #     torch.distributed.barrier()
+        if i == len(test_loader)-1:
+            print(" ---- dist.barrier ----")
+            torch.distributed.barrier()
     xs = [t.to(device) for t in xs]
     y_true = [t.to(device) for t in y_true]
     y_pred = torch.cat(xs, dim=0).argmax(dim=-1, keepdim=True)
@@ -184,21 +185,17 @@ def run_training_proc(
         print(f"TEST LOADER CHANNEL: {test_loader.channel.empty()}")
 
         for i, batch in enumerate(train_loader):
-            print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
+            print(f"-------- x2_worker: batch={batch}, i={i} --------- ")
             optimizer.zero_grad()
             out = model(batch.x, batch.edge_index)[
                 :batch.batch_size].log_softmax(dim=-1)
             loss = F.nll_loss(out, batch.y[:batch.batch_size])
             loss.backward()
             optimizer.step()
-            cnt = cnt+1
-            # if i == len(train_loader)-1:
-            #     torch.distributed.barrier()
-        print(f"---- cnt ={cnt}, after batch loop ")
-        # torch.cuda.empty_cache() # empty cache when GPU memory is not efficient.
-        # torch.cuda.synchronize()
-        print(" ---- cuda.sync ----")
-        torch.distributed.barrier()
+            if i == len(train_loader)-1:
+                print(" ---- dist.barrier ----")
+                torch.distributed.barrier()
+
         print(" ---- dist.barrier ----")
         end = time.time()
         f.write(
@@ -220,8 +217,6 @@ def run_training_proc(
             print("\n\n\n\n\n\n")
             print("********************************************************************************************** ")
         print("\n\n\n\n\n\n")
-        # torch.cuda.synchronize()
-        torch.distributed.barrier()
 
     print(f"----------- 555 ------------- ")
 

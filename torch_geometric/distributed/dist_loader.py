@@ -16,12 +16,12 @@ class DistLoader:
                  rpc_worker_names: Dict[DistRole, List[str]],
                  master_addr: str,
                  master_port: Union[int, str],
-                 # Optional[Union[ChannelBase, mp.Queue()]],
                  channel: mp.Queue(),
                  num_rpc_threads: Optional[int] = 16,
                  rpc_timeout: Optional[int] = 180,
                  **kwargs,
                  ):
+        
         self.channel = channel
         self.current_ctx = current_ctx
         self.rpc_worker_names = rpc_worker_names
@@ -59,9 +59,6 @@ class DistLoader:
         # init rpc in main process
         if self.num_workers == 0:
             self.worker_init_fn(0)
-            
-        # close rpc & worker group at exit
-        atexit.register(close_sampler, 111, self.neighbor_sampler)   
          
     def channel_get(self, out) -> Union[SamplerOutput, HeteroSamplerOutput]:
         if self.channel:
@@ -92,7 +89,7 @@ class DistLoader:
             self.neighbor_sampler.register_sampler_rpc()
             self.neighbor_sampler.init_event_loop()
             # close rpc & worker group at exit
-            #atexit.register(close_sampler, worker_id, self.neighbor_sampler)
+            atexit.register(close_sampler, worker_id, self.neighbor_sampler)
             # wait for all workers to init
             global_barrier(timeout=10)
 
