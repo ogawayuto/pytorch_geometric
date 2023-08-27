@@ -40,6 +40,8 @@ class DistNeighborLoader(NodeLoader, DistLoader):
             be raised. Callers can override this timeout for individual
             RPCs in :meth:`~torch.distributed.rpc.rpc_sync` and
             :meth:`~torch.distributed.rpc.rpc_async` if necessary. (default: 180)
+        concurrency (Optional[int], optional): RPC concurrency used for defining 
+            max size of asynchronous processing queue. 
         input_nodes (torch.Tensor or str or Tuple[str, torch.Tensor]): The
             indices of nodes for which neighbors are sampled to create
             mini-batches.
@@ -48,50 +50,50 @@ class DistNeighborLoader(NodeLoader, DistLoader):
             If set to :obj:`None`, all nodes will be considered.
             In heterogeneous graphs, needs to be passed as a tuple that holds
             the node type and node indices. (default: :obj:`None`)
-            
+
         All other Args follow the input type of the standard torch_geometric.loader.NodeLoader.
-        
+
         **kwargs (optional): Additional arguments of
             :class:`torch.utils.data.DataLoader`, such as :obj:`batch_size`,
             :obj:`shuffle`, :obj:`drop_last` or :obj:`num_workers`.
     """
 
     def __init__(self,
-                data: Tuple[LocalFeatureStore, LocalGraphStore],
-                num_neighbors: Union[List[int], Dict[EdgeType, List[int]]],
-                master_addr: str,
-                master_port: Union[int, str],
-                current_ctx: DistContext,
-                rpc_worker_names: Dict[DistRole, List[str]],
-                input_nodes: InputNodes = None,
-                input_time: OptTensor = None,
-                neighbor_sampler: Optional[DistNeighborSampler] = None,
-                replace: bool = False,
-                subgraph_type: Union[SubgraphType, str] = 'directional',
-                disjoint: bool = False,
-                temporal_strategy: str = 'uniform',
-                time_attr: Optional[str] = None,
-                transform: Optional[Callable] = None,
-                is_sorted: bool = False,
-                directed: bool = True,  # Deprecated.
-                with_edge: bool = True,
-                concurrency: int = 1,
-                filter_per_worker: Optional[bool] = False,
-                async_sampling: bool = True,
-                device: torch.device = torch.device('cpu'),
-                **kwargs,
-                ):
+                 data: Tuple[LocalFeatureStore, LocalGraphStore],
+                 num_neighbors: Union[List[int], Dict[EdgeType, List[int]]],
+                 master_addr: str,
+                 master_port: Union[int, str],
+                 current_ctx: DistContext,
+                 rpc_worker_names: Dict[DistRole, List[str]],
+                 input_nodes: InputNodes = None,
+                 input_time: OptTensor = None,
+                 neighbor_sampler: Optional[DistNeighborSampler] = None,
+                 replace: bool = False,
+                 subgraph_type: Union[SubgraphType, str] = 'directional',
+                 disjoint: bool = False,
+                 temporal_strategy: str = 'uniform',
+                 time_attr: Optional[str] = None,
+                 transform: Optional[Callable] = None,
+                 is_sorted: bool = False,
+                 directed: bool = True,  # Deprecated.
+                 with_edge: bool = True,
+                 concurrency: int = 1,
+                 filter_per_worker: Optional[bool] = False,
+                 async_sampling: bool = True,
+                 device: torch.device = torch.device('cpu'),
+                 **kwargs,
+                 ):
 
         assert (isinstance(data[0], LocalFeatureStore) and (
             data[1], LocalGraphStore)), "Data needs to be Tuple[LocalFeatureStore, LocalGraphStore]"
-        
+
         assert concurrency >= 1, "RPC concurrency must be greater than 1."
-        
+
         if input_time is not None and time_attr is None:
             raise ValueError("Received conflicting 'input_time' and "
                              "'time_attr' arguments: 'input_time' is set "
                              "while 'time_attr' is not set.")
-        
+
         channel = torch.multiprocessing.Queue() if async_sampling else None
 
         if neighbor_sampler is None:
@@ -114,7 +116,7 @@ class DistNeighborLoader(NodeLoader, DistLoader):
                 concurrency=concurrency,
             )
         self.neighbor_sampler = neighbor_sampler
-                     
+
         DistLoader.__init__(self,
                             channel=channel,
                             master_addr=master_addr,
@@ -129,8 +131,8 @@ class DistNeighborLoader(NodeLoader, DistLoader):
                             input_nodes=input_nodes,
                             input_time=input_time,
                             transform=transform,
-                            transform_sampler_output=self.channel_get,
                             filter_per_worker=filter_per_worker,
+                            transform_sampler_output=self.channel_get,
                             worker_init_fn=self.worker_init_fn,
                             **kwargs
                             )
