@@ -171,7 +171,7 @@ class DistNeighborSampler:
         self.temporal_strategy = temporal_strategy
         self.time_attr = time_attr
         self.csc = True  # always true?
-
+        
         self.with_edge_attr = self.dist_feature.has_edge_attr()
 
     def register_sampler_rpc(self):
@@ -264,6 +264,7 @@ class DistNeighborSampler:
             including the (1) source node indices, the (2) destination node
             indices, the (3) optional edge labels and the (4) input edge type.
         """
+        self.neg_sampling = neg_sampling
         if self.channel is None:
             return self.event_loop.run_task(
                 coro=self._sample_from(
@@ -304,7 +305,9 @@ class DistNeighborSampler:
         seed_time = inputs.time.to(
             self.device) if inputs.time is not None else None
         input_type = inputs.input_type
-        metadata = (seed, seed_time, input_type)
+        self.input_type = input_type
+        print(input_type)
+        metadata = (seed, seed_time)
         batch_size = seed.numel()
         src_batch = torch.arange(batch_size) if self.disjoint else None
 
@@ -665,8 +668,6 @@ class DistNeighborSampler:
         r""" Collect labels and features for the sampled subgrarph if necessary,
         and put them into a sample message.
         """
-        input_type = output.metadata[2]
-
         if self.is_hetero:
             nlabels = {}
             nfeats = {}
@@ -675,7 +676,7 @@ class DistNeighborSampler:
             # Collect node labels of input node type.
             node_labels = self.dist_graph.labels
             if node_labels is not None:
-                nlabels[input_type] = node_labels[output.node[input_type]]
+                nlabels[self.input_type] = node_labels[output.node[self.input_type]]
             # Collect node features.
             if output.node is not None:
                 for ntype in output.node.keys():
@@ -730,8 +731,7 @@ class DistNeighborSampler:
 
         # print(f"------- 777.4 ----- DistNSampler: _colloate_fn()  return -------")
         output.metadata = (
-            output.metadata[0],
-            output.metadata[1],
+            *output.metadata,
             nfeats, nlabels, efeats)
         if self.is_hetero:
             output.row = remap_keys(output.row, self._sampler.to_edge_type)

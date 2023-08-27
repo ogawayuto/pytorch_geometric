@@ -161,10 +161,10 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
                 data = filter_data(self.data, out.node, out.row, out.col,
                                    out.edge, self.node_sampler.edge_permutation)
             else:  # Tuple[FeatureStore, GraphStore]
-                data = Data(x=out.metadata[2],
-                            y=out.metadata[3],
+                data = Data(x=out.metadata[-3],
+                            y=out.metadata[-2],
                             edge_index=torch.stack([out.row, out.col]),
-                            edge_attr=out.metadata[4],
+                            edge_attr=out.metadata[-1],
                             )
             if 'n_id' not in data:
                 data.n_id = out.node
