@@ -111,7 +111,6 @@ class DistLinkNeighborLoader(LinkLoader, DistLoader):
                             neg_sampling=neg_sampling,
                             neg_sampling_ratio=neg_sampling_ratio,
                             transform=transform,
-                            transform_sampler_output=transform_sampler_output,
                             filter_per_worker=filter_per_worker,
                             worker_init_fn=self.worker_init_fn,
                             transform_sampler_output=self.channel_get,
