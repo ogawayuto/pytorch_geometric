@@ -267,7 +267,7 @@ class LinkLoader(torch.utils.data.DataLoader, AffinityMixin):
                                           out.col, out.edge,
                                           self.link_sampler.edge_permutation)
             else: #Tuple[FeatureStore, GraphStore]
-                if not isinstance(self.node_sampler, BaseSampler): #DistSampler
+                if not isinstance(self.link_sampler, BaseSampler): #DistSampler
                     data = filter_dist_store(*self.data, out.node, out.row,
                                                 out.col, out.edge, self.custom_cls, out.metadata)
                 else:
