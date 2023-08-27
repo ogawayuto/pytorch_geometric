@@ -120,8 +120,6 @@ class DistNeighborSampler:
     Args:
       data (DistDataset): The graph and feature data with partition info.
       num_neighbors (NumNeighbors): The number of sampling neighbors on each hop.
-      collect_features (bool): Whether collect features for sampled results.
-        (default: ``None``).
       channel (ChannelBase, optional): The message channel to send sampled
         results. If set to `None`, the sampled results will be returned
         directly with `sample_from_nodes`. (default: ``None``).
