@@ -121,7 +121,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
 
   edge_label_index_train = (None, torch.stack([graph.get_edge_index((None, 'coo'))[0], graph.get_edge_index((None, 'coo'))[1]], dim=0))
   num_workers=2
-  concurrency=10
+  concurrency=4
   train_loader = pyg_dist.DistLinkNeighborLoader(
     data=partition_data,
     num_workers=num_workers,
@@ -138,7 +138,6 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     neg_sampling_ratio=1,
     time_attr=None,
     transform=None,
-    transform_sampler_output=None,
     is_sorted=False,
     filter_per_worker=False,
     shuffle=True,
@@ -174,7 +173,6 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     neg_sampling_ratio=1,
     time_attr=None,
     transform=None,
-    transform_sampler_output=None,
     is_sorted=False,
     filter_per_worker=False,
     shuffle=False,
