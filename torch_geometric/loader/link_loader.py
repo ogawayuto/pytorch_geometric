@@ -245,6 +245,7 @@ class LinkLoader(torch.utils.data.DataLoader, AffinityMixin):
             data.num_sampled_edges = out.num_sampled_edges
 
             data.input_id = out.metadata[0]
+            data.batch_size = out.metadata[0].size(0)
 
             if self.neg_sampling is None or self.neg_sampling.is_binary():
                 data.edge_label_index = out.metadata[1]
@@ -287,6 +288,8 @@ class LinkLoader(torch.utils.data.DataLoader, AffinityMixin):
 
             input_type = self.input_data.input_type
             data[input_type].input_id = out.metadata[0]
+            data[input_type].batch_size = out.metadata[0].size(0)
+
 
             if self.neg_sampling is None or self.neg_sampling.is_binary():
                 data[input_type].edge_label_index = out.metadata[1]
