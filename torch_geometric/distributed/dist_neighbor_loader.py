@@ -85,7 +85,7 @@ class DistNeighborLoader(NodeLoader, DistLoader):
         assert (isinstance(data[0], LocalFeatureStore) and (
             data[1], LocalGraphStore)), "Data needs to be Tuple[LocalFeatureStore, LocalGraphStore]"
         
-        assert concurrency >= 1, "concurrency must be greater than 1"
+        assert concurrency >= 1, "RPC concurrency must be greater than 1."
         
         if input_time is not None and time_attr is None:
             raise ValueError("Received conflicting 'input_time' and "
@@ -116,7 +116,6 @@ class DistNeighborLoader(NodeLoader, DistLoader):
         self.neighbor_sampler = neighbor_sampler
                      
         DistLoader.__init__(self,
-                            neighbor_sampler=neighbor_sampler,
                             channel=channel,
                             master_addr=master_addr,
                             master_port=master_port,

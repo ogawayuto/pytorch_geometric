@@ -8,6 +8,7 @@ from torch_geometric.loader.base import DataLoaderIterator
 from torch_geometric.loader.mixin import AffinityMixin
 from torch_geometric.loader.utils import (
     filter_custom_store,
+    filter_dist_store,
     filter_data,
     filter_hetero_data,
     get_edge_label_index,
@@ -158,6 +159,8 @@ class LinkLoader(torch.utils.data.DataLoader, AffinityMixin):
         self.transform_sampler_output = transform_sampler_output
         self.filter_per_worker = filter_per_worker
         self.custom_cls = custom_cls
+        self.worker_init_fn = worker_init_fn
+
 
         if (self.neg_sampling is not None and self.neg_sampling.is_binary()
                 and edge_label is not None and edge_label.min() == 0):
@@ -186,7 +189,7 @@ class LinkLoader(torch.utils.data.DataLoader, AffinityMixin):
         super().__init__(
             iterator, 
             collate_fn=self.collate_fn, 
-            worker_init_fn=worker_init_fn,
+            worker_init_fn=self.worker_init_fn,
             **kwargs)
 
     def __call__(
@@ -257,9 +260,13 @@ class LinkLoader(torch.utils.data.DataLoader, AffinityMixin):
                 data = filter_hetero_data(self.data, out.node, out.row,
                                           out.col, out.edge,
                                           self.link_sampler.edge_permutation)
-            else:  # Tuple[FeatureStore, GraphStore]
-                data = filter_hetero_custom_store(*self.data, out.node, out.row,
-                                           out.col, out.edge, self.custom_cls)
+            else: #Tuple[FeatureStore, GraphStore]
+                if not isinstance(self.node_sampler, BaseSampler): #DistSampler
+                    data = filter_dist_store(*self.data, out.node, out.row,
+                                                out.col, out.edge, self.custom_cls, out.metadata)
+                else:
+                    data = filter_custom_store(*self.data, out.node, out.row,
+                                out.col, out.edge, self.custom_cls)
 
             for key, node in out.node.items():
                 if 'n_id' not in data[key]:
