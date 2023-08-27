@@ -46,7 +46,6 @@ class DistLinkNeighborLoader(LinkLoader, DistLoader):
                  neg_sampling_ratio: Optional[Union[int, float]] = None,
                  time_attr: Optional[str] = None,
                  transform: Optional[Callable] = None,
-                 transform_sampler_output: Optional[Callable] = None,
                  is_sorted: bool = False,
                  filter_per_worker: Optional[bool] = None,
                  directed: bool = True,  # Deprecated.
