@@ -322,17 +322,18 @@ class DistNeighborSampler():
       edge_dict: Dict[EdgeType, Tensor] = {}
 
       seed_time_dict: Dict[NodeType, Tensor] = {input_type: seed_time}
-      sampled_nbrs_per_node_dict: Dict[NodeType, List[int]] = {}
       num_sampled_nodes_dict: Dict[NodeType, List[int]] = {}
+
+      sampled_nbrs_per_node_dict: Dict[EdgeType, List[int]] = {}
       num_sampled_edges_dict: Dict[EdgeType, List[int]] = {}
 
       for ntype in self._sampler.node_types:
-        sampled_nbrs_per_node_dict.update({ntype: []})
         num_sampled_nodes_dict.update({ntype: [0]})
       
       for etype in self._sampler.edge_types:
         edge_dict.update({etype: torch.empty(0, dtype=torch.int64)})
         num_sampled_edges_dict.update({etype: []})
+        sampled_nbrs_per_node_dict.update({etype: []})
 
       node_dict.src[input_type] = seed
       batch_dict.src[input_type] = src_batch if self.disjoint else None
@@ -377,10 +378,11 @@ class DistNeighborSampler():
 
           num_sampled_nodes_dict[dst].append(len(node_dict.src[dst]))
           num_sampled_edges_dict[etype].append(len(out.node))
-          sampled_nbrs_per_node_dict[dst] += out.metadata
+          sampled_nbrs_per_node_dict[etype] += out.metadata
+
+      sampled_nbrs_per_node_dict = remap_keys(sampled_nbrs_per_node_dict, self._sampler.to_rel_type)
 
       row_dict, col_dict = torch.ops.pyg.hetero_relabel_neighborhood(self._sampler.node_types, self._sampler.edge_types, {input_type: seed}, node_dict.with_dupl, sampled_nbrs_per_node_dict, self._sampler.num_nodes, batch_dict.with_dupl, self.csc, self.disjoint)
-
       
       node_dict.out = {ntype: Tensor(node_dict.out[ntype]).type(torch.int64) for ntype in self._sampler.node_types}
       if self.disjoint:
@@ -389,8 +391,8 @@ class DistNeighborSampler():
 
       sample_output = HeteroSamplerOutput(
         node=node_dict.out,
-        row=row_dict,
-        col=col_dict,
+        row=remap_keys(row_dict, self._sampler.to_edge_type),
+        col=remap_keys(col_dict, self._sampler.to_edge_type),
         edge=edge_dict,
         batch=batch_dict.out if self.disjoint else None,
         num_sampled_nodes=num_sampled_nodes_dict,
