@@ -37,6 +37,7 @@ def test(model, test_loader, dataset_name):
         xs.append(x.cpu())
         y_true.append(batch.y[:batch.batch_size].cpu())
         print(f"---- test():  i={i}, batch={batch} ----")
+        del batch
         if i == len(test_loader)-1:
             print(" ---- dist.barrier ----")
             torch.distributed.barrier()

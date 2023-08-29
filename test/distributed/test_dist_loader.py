@@ -35,8 +35,9 @@ def create_dist_data(tmp_path, rank):
         meta, num_partitions, partition_idx, node_pb, edge_pb
     ) = load_partition_info(tmp_path, rank)
     if meta['is_hetero']:
-        node_pb = torch.cat(list(node_pb.values()))
-        edge_pb = torch.cat(list(edge_pb.values()))
+        pass
+        # node_pb = torch.cat(list(node_pb.values()))
+        # edge_pb = torch.cat(list(edge_pb.values()))
     else:
         edge_attrs = graph_store.get_all_edge_attrs()[0]
         graph_store.labels = torch.arange(edge_attrs.size[0])
@@ -227,11 +228,12 @@ def dist_neighbor_loader_hetero(
             assert batch.x_dict[ntype].size(0) >= 0
             assert batch[ntype].n_id.size() == (batch[ntype].num_nodes, )
         assert len(batch.edge_types) == 4
-        for etype in batch.edge_types[:2]:
-            assert batch[etype].edge_index.device == device
-            assert batch[etype].edge_attr.device == device
-            assert batch[etype].edge_attr.size(
-                0) == batch[etype].edge_index.size(1)
+        for etype in batch.edge_types:
+            if batch[etype].edge_index.size(1) != 0:
+                assert batch[etype].edge_index.device == device
+                assert batch[etype].edge_attr.device == device
+                assert batch[etype].edge_attr.size(
+                    0) == batch[etype].edge_index.size(1)
 
 
 @onlyLinux
@@ -308,40 +310,40 @@ def test_dist_link_neighbor_loader_homo(
     w1.join()
 
 
-# @onlyLinux
-# @pytest.mark.skipif(not WITH_METIS, reason='Not compiled with METIS support')
-# @pytest.mark.parametrize('num_workers', [0, 2])
-# @pytest.mark.parametrize('concurrency', [1, 10])
-# @pytest.mark.parametrize('async_sampling', [True, False])
-# def test_dist_neighbor_loader_hetero(
-#         tmp_path, num_workers, concurrency, async_sampling):
+@onlyLinux
+@pytest.mark.skipif(not WITH_METIS, reason='Not compiled with METIS support')
+@pytest.mark.parametrize('num_workers', [0, 2])
+@pytest.mark.parametrize('concurrency', [1, 10])
+@pytest.mark.parametrize('async_sampling', [True, False])
+def test_dist_neighbor_loader_hetero(
+        tmp_path, num_workers, concurrency, async_sampling):
 
-#     mp_context = torch.multiprocessing.get_context('spawn')
-#     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-#     s.bind(('127.0.0.1', 0))
-#     port = s.getsockname()[1]
-#     s.close()
-#     addr = 'localhost'
+    mp_context = torch.multiprocessing.get_context('spawn')
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.bind(('127.0.0.1', 0))
+    port = s.getsockname()[1]
+    s.close()
+    addr = 'localhost'
 
-#     data = FakeHeteroDataset(
-#         num_graphs=1,
-#         avg_num_nodes=100,
-#         avg_degree=3,
-#         num_node_types=2,
-#         num_edge_types=4,
-#         edge_dim=2)[0]
+    data = FakeHeteroDataset(
+        num_graphs=1,
+        avg_num_nodes=100,
+        avg_degree=3,
+        num_node_types=2,
+        num_edge_types=4,
+        edge_dim=2)[0]
 
-#     num_parts = 2
-#     partitioner = Partitioner(data, num_parts, tmp_path)
-#     partitioner.generate_partition()
+    num_parts = 2
+    partitioner = Partitioner(data, num_parts, tmp_path)
+    partitioner.generate_partition()
 
-#     w0 = mp_context.Process(target=dist_neighbor_loader_hetero, args=(
-#         tmp_path, num_parts, 0, addr, port, num_workers, concurrency, async_sampling))
+    w0 = mp_context.Process(target=dist_neighbor_loader_hetero, args=(
+        tmp_path, num_parts, 0, addr, port, num_workers, concurrency, async_sampling))
 
-#     w1 = mp_context.Process(target=dist_neighbor_loader_hetero, args=(
-#         tmp_path, num_parts, 1, addr, port, num_workers, concurrency, async_sampling))
+    w1 = mp_context.Process(target=dist_neighbor_loader_hetero, args=(
+        tmp_path, num_parts, 1, addr, port, num_workers, concurrency, async_sampling))
 
-#     w0.start()
-#     w1.start()
-#     w0.join()
-#     w1.join()
+    w0.start()
+    w1.start()
+    w0.join()
+    w1.join()

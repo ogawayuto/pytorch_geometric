@@ -39,8 +39,9 @@ def test(model, test_loader, dataset_name):
     y_true.append(batch.y[:batch.batch_size].cpu())
     print(f"---- test():  i={i}, batch={batch} ----")
     del batch
-    if i == 10: 
-      break
+    if i == len(test_loader)-1:
+        print(" ---- dist.barrier ----")
+        torch.distributed.barrier()
   xs = [t.to(device) for t in xs]
   y_true = [t.to(device) for t in y_true]
   y_pred = torch.cat(xs, dim=0).argmax(dim=-1, keepdim=True)
@@ -187,10 +188,9 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   for epoch in range(0, epochs):
     model.train()
     start = time.time()
-    cnt=0
-    for batch in train_loader:
+    for i, batch in enumerate(train_loader):
       pass
-      print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
+      print(f"-------- x2_worker: batch={batch}, cnt={i} --------- ")
       optimizer.zero_grad()
       out = model(batch.x_dict, batch.edge_index_dict)
       batch_size = batch['paper'].batch_size
@@ -199,15 +199,10 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
       loss = F.nll_loss(out, target)
       loss.backward()
       optimizer.step()
-      cnt=cnt+1
-      # # if cnt == 10:
-      # #   break
-    print(f"---- cnt ={cnt}, after batch loop ")
-    # torch.cuda.empty_cache() # empty cache when GPU memory is not efficient.
-    #torch.cuda.synchronize()
-    print(" ---- cuda.sync ----")
-    torch.distributed.barrier()
-    print(" ---- dist.barrier ----")
+      if i == len(test_loader)-1:
+          print(" ---- dist.barrier ----")
+          torch.distributed.barrier()
+
     end = time.time()
     f.write(f'-- [Trainer {current_ctx.rank}] Epoch: {epoch:03d}, Loss: {loss:.4f}, Epoch Time: {end - start}\n')
     print(f'-- [Trainer {current_ctx.rank}] Epoch: {epoch:03d}, Loss: {loss:.4f}, Epoch Time: {end - start}\n')

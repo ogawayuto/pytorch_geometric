@@ -124,6 +124,10 @@ class LocalFeatureStore(FeatureStore):
         assert attr.index is not None
 
         attr = copy.copy(attr)
+        print("get_tensor_from_global_id:", attr.group_name, attr.index)
+        if attr.index is not None:
+            if max(attr.index) > self._global_id_to_index[attr.group_name].size(0):
+                pass
         attr.index = self._global_id_to_index[attr.group_name][attr.index]
 
         return self.get_tensor(attr)
@@ -200,10 +204,6 @@ class LocalFeatureStore(FeatureStore):
     ) -> torch.Tensor:
         r""" lookup the features in local nodes based on node/edge ids """
 
-        # if self.meta["is_hetero"]:
-        #     feat = self
-        #     pb = partition_book[input_type]
-        # else:
         feat = self
         pb = partition_book
 
@@ -244,9 +244,6 @@ class LocalFeatureStore(FeatureStore):
     ) -> torch.futures.Future:
         r""" fetch the remote features with the remote node/edge ids"""
 
-        # if self.meta["is_hetero"]:
-        #     pb = partition_book[input_type]
-        # else:
         pb = partition_book
 
         input_order = torch.arange(ids.size(0), dtype=torch.long)
