@@ -72,9 +72,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     meta, num_partitions, partition_idx, node_pb, edge_pb
   ) = load_partition_info(osp.join(root_dir, f'{dataset_name}-partitions'), node_rank)
   print(f"-------- meta={meta}, partition_idx={partition_idx}, node_pb={node_pb} ")
-  if meta['is_hetero']:
-    node_pb = torch.cat(list(node_pb.values()))
-    edge_pb = torch.cat(list(edge_pb.values()))
+
   graph.num_partitions = num_partitions
   graph.partition_idx = partition_idx
   graph.node_pb = node_pb
