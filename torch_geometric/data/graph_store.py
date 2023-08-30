@@ -107,6 +107,7 @@ class GraphStore:
             :class:`EdgeAttr` class to customize the required attributes and
             their ordering to uniquely identify edges. (default: :obj:`None`)
     """
+
     def __init__(self, edge_attr_cls: Optional[Any] = None):
         super().__init__()
         self.__dict__['_edge_attr_cls'] = edge_attr_cls or EdgeAttr
@@ -275,7 +276,7 @@ class GraphStore:
                 col = ptr2index(col)
 
             if attr.layout != EdgeLayout.CSR:  # COO->CSR
-                num_rows = attr.size[0] if attr.size else int(row.max()) + 1 
+                num_rows = attr.size[0] if attr.size else int(row.max()) + 1
                 row, perm = index_sort(row, max_value=num_rows)
                 col = col[perm]
                 row = index2ptr(row, num_rows)
@@ -285,7 +286,8 @@ class GraphStore:
                 row = ptr2index(row)
 
             if attr.layout != EdgeLayout.CSC:  # COO->CSC
-                num_cols = int(col.max()) + 1 # attr.size[1] if attr.size else #! TODO: Hotfix for conversion error
+                # attr.size[1] if attr.size else #! TODO: Hotfix for conversion error
+                num_cols = int(col.max()) + 1
                 if not attr.is_sorted:  # Not sorted by destination.
                     col, perm = index_sort(col, max_value=num_cols)
                     row = row[perm]
@@ -304,10 +306,16 @@ class GraphStore:
         self,
         layout: EdgeLayout,
         edge_types: Optional[List[Any]] = None,
-         store: bool = False,
+        store: bool = False,
     ) -> ConversionOutputType:
 
-        if not self.meta['is_hetero']: # Homo
+        try:
+            is_hetero = self.meta["is_hetero"]
+        except AttributeError:
+            # assume default is_hetero = True
+            is_hetero = True
+
+        if not is_hetero:  # Homo
             edge_attrs: List[EdgeAttr] = []
             for attr in self.get_all_edge_attrs():
                 edge_attrs.append(attr)
@@ -315,7 +323,9 @@ class GraphStore:
             # Convert layout from its most favorable original layout:
             row, col, perm = [], [], []
             # for attrs in edge_attrs:
-            row, col, perm = (self._edge_to_layout(edge_attrs[0], layout, store))
+            row, col, perm = (self._edge_to_layout(
+                edge_attrs[0],
+                layout, store))
 
             return row, col, perm
         else:
@@ -328,8 +338,9 @@ class GraphStore:
             if edge_types is not None:
                 for edge_type in edge_types:
                     if edge_type not in edge_type_attrs:
-                        raise ValueError(f"The 'edge_index' of type '{edge_type}' "
-                                        f"was not found in the graph store.")
+                        raise ValueError(
+                            f"The 'edge_index' of type '{edge_type}' "
+                            f"was not found in the graph store.")
 
                 edge_type_attrs = {
                     key: attr

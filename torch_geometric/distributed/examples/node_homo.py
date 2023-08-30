@@ -38,6 +38,9 @@ def test(model, test_loader, dataset_name):
         y_true.append(batch.y[:batch.batch_size].cpu())
         print(f"---- test():  i={i}, batch={batch} ----")
         del batch
+        if i == len(test_loader)-1:
+            print(" ---- dist.barrier ----")
+            torch.distributed.barrier()
     xs = [t.to(device) for t in xs]
     y_true = [t.to(device) for t in y_true]
     y_pred = torch.cat(xs, dim=0).argmax(dim=-1, keepdim=True)
@@ -124,7 +127,6 @@ def run_training_proc(
         input_nodes=train_idx,
         batch_size=batch_size,
         shuffle=True,
-        collect_features=True,
         device=torch.device('cpu'),
         num_workers=num_workers,
         concurrency=concurrency,
@@ -133,7 +135,7 @@ def run_training_proc(
         async_sampling=True,
         filter_per_worker=False,
         current_ctx=current_ctx,
-        rpc_worker_names=rpc_worker_names,
+        rpc_worker_names=rpc_worker_names
     )
 
     print(f"----------- 333 ------------- ")
@@ -147,7 +149,6 @@ def run_training_proc(
         input_nodes=test_idx,
         batch_size=batch_size,
         shuffle=True,
-        collect_features=True,
         device=torch.device('cpu'),
         num_workers=num_workers,
         concurrency=concurrency,
@@ -156,7 +157,7 @@ def run_training_proc(
         async_sampling=True,
         filter_per_worker=False,
         current_ctx=current_ctx,
-        rpc_worker_names=rpc_worker_names,
+        rpc_worker_names=rpc_worker_names
     )
 
     # Define model and optimizer.
@@ -184,20 +185,18 @@ def run_training_proc(
         print(f"TRAIN LOADER CHANNEL EMPTY: {train_loader.channel.empty()}")
         print(f"TEST LOADER CHANNEL: {test_loader.channel.empty()}")
 
-        for batch in train_loader:
-            # print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
+        for i, batch in enumerate(train_loader):
+            print(f"-------- x2_worker: batch={batch}, i={i} --------- ")
             optimizer.zero_grad()
             out = model(batch.x, batch.edge_index)[
                 :batch.batch_size].log_softmax(dim=-1)
             loss = F.nll_loss(out, batch.y[:batch.batch_size])
             loss.backward()
             optimizer.step()
-            cnt = cnt+1
-        print(f"---- cnt ={cnt}, after batch loop ")
-        # torch.cuda.empty_cache() # empty cache when GPU memory is not efficient.
-        # torch.cuda.synchronize()
-        print(" ---- cuda.sync ----")
-        torch.distributed.barrier()
+            if i == len(train_loader)-1:
+                print(" ---- dist.barrier ----")
+                torch.distributed.barrier()
+
         print(" ---- dist.barrier ----")
         end = time.time()
         f.write(
@@ -209,19 +208,16 @@ def run_training_proc(
         print("\n\n\n\n\n\n")
 
         # Test accuracy.
-        # if epoch == 0 or epoch > (epochs // 2):
-        # if epoch % 5 == 0:  # or epoch > (epochs // 2):
-        #     test_acc = test(model, test_loader, dataset_name)
-        #     f.write(
-        #         f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
-        #     print(
-        #         f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
+        if epoch % 5 == 0:  # or epoch > (epochs // 2):
+            test_acc = test(model, test_loader, dataset_name)
+            f.write(
+                f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
+            print(
+                f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
 
-        #     print("\n\n\n\n\n\n")
-        #     print("********************************************************************************************** ")
-        # print("\n\n\n\n\n\n")
-        # # torch.cuda.synchronize()
-        # torch.distributed.barrier()
+            print("\n\n\n\n\n\n")
+            print("********************************************************************************************** ")
+        print("\n\n\n\n\n\n")
 
     print(f"----------- 555 ------------- ")
 

@@ -1,6 +1,3 @@
-import torch_geometric.distributed as pyg_dist
-import torch_geometric.distributed.rpc
-from torch_geometric.typing import Tuple
 from torch_geometric.distributed.dist_context import DistContext, DistRole
 from torch_geometric.distributed.partition import load_partition_info
 
@@ -18,11 +15,13 @@ import torch.nn.functional as F
 
 from ogb.nodeproppred import Evaluator
 from torch.nn.parallel import DistributedDataParallel
-from torch_geometric.nn import GraphSAGE
+from benchmark.utils.hetero_sage import HeteroGraphSAGE
+from torch_geometric.nn import GraphSAGE, to_hetero
 
 from torch_geometric.distributed import (
     LocalFeatureStore,
-    LocalGraphStore
+    LocalGraphStore,
+    DistNeighborLoader
     )
 
 print("\n\n\n\n\n\n")
@@ -40,8 +39,9 @@ def test(model, test_loader, dataset_name):
     y_true.append(batch.y[:batch.batch_size].cpu())
     print(f"---- test():  i={i}, batch={batch} ----")
     del batch
-    if i == 10: 
-      break
+    if i == len(test_loader)-1:
+        print(" ---- dist.barrier ----")
+        torch.distributed.barrier()
   xs = [t.to(device) for t in xs]
   y_true = [t.to(device) for t in y_true]
   y_pred = torch.cat(xs, dim=0).argmax(dim=-1, keepdim=True)
@@ -72,7 +72,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     meta, num_partitions, partition_idx, node_pb, edge_pb
   ) = load_partition_info(osp.join(root_dir, f'{dataset_name}-partitions'), node_rank)
   print(f"-------- meta={meta}, partition_idx={partition_idx}, node_pb={node_pb} ")
-  
+
   graph.num_partitions = num_partitions
   graph.partition_idx = partition_idx
   graph.node_pb = node_pb
@@ -126,7 +126,6 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     input_nodes=train_idx,
     batch_size=batch_size,
     shuffle=True,
-    collect_features=True,
     device=torch.device('cpu'),
     num_workers=num_workers,
     concurrency=concurrency,
@@ -136,20 +135,19 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     filter_per_worker = False,
     current_ctx=current_ctx,
     rpc_worker_names=rpc_worker_names,
-    # disjoint=True
+    disjoint=False
   )
 
   print(f"----------- 333 ------------- ")
   # Create distributed neighbor loader for testing.
   test_idx = ('paper', test_idx.split(test_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
-  test_loader = pyg_dist.DistNeighborLoader(
+  test_loader = DistNeighborLoader(
     data=partition_data,
     #data=dataset,
     num_neighbors=num_neighbors,
     input_nodes=test_idx,
     batch_size=batch_size,
     shuffle=True,
-    collect_features=True,
     device=torch.device('cpu'),
     num_workers=num_workers,
     concurrency=concurrency,
@@ -159,18 +157,26 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     filter_per_worker = False,
     current_ctx=current_ctx,
     rpc_worker_names=rpc_worker_names,
-    # disjoint=True
+    disjoint=True
   )
 
   # Define model and optimizer.
   #torch.cuda.set_device(current_device)
-
+  node_types = ['paper']
+  edge_types = [
+      ('paper', 'cites', 'paper'),
+      ('paper', 'written_by', 'author'),
+      ('author', 'writes', 'paper'),
+  ]
+  metadata=(node_types, edge_types)
   model = GraphSAGE(
     in_channels=in_channels,
     hidden_channels=256,
     num_layers=3,
     out_channels=out_channels,
   ).to(current_device)
+
+  model=to_hetero(model, metadata)
   model = DistributedDataParallel(model) #, device_ids=[current_device.index])
   optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
@@ -180,23 +186,21 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   for epoch in range(0, epochs):
     model.train()
     start = time.time()
-    cnt=0
-    for batch in train_loader:
-      print(f"-------- x2_worker: batch={batch}, cnt={cnt} --------- ")
+    for i, batch in enumerate(train_loader):
+      pass
+      print(f"-------- x2_worker: batch={batch}, cnt={i} --------- ")
       optimizer.zero_grad()
-      out = model(batch.x, batch.edge_index)[:batch.batch_size].log_softmax(dim=-1)
-      loss = F.nll_loss(out, batch.y[:batch.batch_size])
+      out = model(batch.x_dict, batch.edge_index_dict)
+      batch_size = batch['paper'].batch_size
+      out = out['paper'][:batch_size]
+      target = batch['paper'].y[:batch_size]
+      loss = F.nll_loss(out, target)
       loss.backward()
       optimizer.step()
-      cnt=cnt+1
-      # if cnt == 10:
-      #   break
-    print(f"---- cnt ={cnt}, after batch loop ")
-    # torch.cuda.empty_cache() # empty cache when GPU memory is not efficient.
-    #torch.cuda.synchronize()
-    print(" ---- cuda.sync ----")
-    torch.distributed.barrier()
-    print(" ---- dist.barrier ----")
+      if i == len(test_loader)-1:
+          print(" ---- dist.barrier ----")
+          torch.distributed.barrier()
+
     end = time.time()
     f.write(f'-- [Trainer {current_ctx.rank}] Epoch: {epoch:03d}, Loss: {loss:.4f}, Epoch Time: {end - start}\n')
     print(f'-- [Trainer {current_ctx.rank}] Epoch: {epoch:03d}, Loss: {loss:.4f}, Epoch Time: {end - start}\n')
@@ -233,7 +237,7 @@ if __name__ == '__main__':
   parser.add_argument(
     "--in_channel",
     type=int,
-    default=100,
+    default=128,
     help="in channel of the dataset, default is for ogbn-products"
   )
   parser.add_argument(
