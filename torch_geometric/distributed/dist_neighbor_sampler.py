@@ -13,7 +13,7 @@ from torch_geometric.sampler.utils import remap_keys
 
 from torch_geometric.sampler import (
   NodeSamplerInput, EdgeSamplerInput,
-  NeighborOutput, SamplerOutput, HeteroSamplerOutput,
+  SamplerOutput, HeteroSamplerOutput,
   NeighborSampler, NegativeSampling, edge_sample_async
 )
 from torch_geometric.sampler.base import SubgraphType
@@ -37,6 +37,8 @@ from .rpc import (
   RPCRouter, 
   rpc_partition_to_workers, shutdown_rpc
 )
+
+from torch_geometric.profile import timeit
 
 from torch_geometric.distributed.local_graph_store import LocalGraphStore
 from torch_geometric.distributed.local_feature_store import LocalFeatureStore
@@ -466,8 +468,13 @@ class DistNeighborSampler():
   def get_sampled_nbrs_per_node(
     self,
     outputs: List[SamplerOutput],
+    seed_size: int,
   ) -> SamplerOutput:
     p_id = self.dist_graph.partition_idx
+
+    outputs[p_id].node = outputs[p_id].node[seed_size:]
+    if self.disjoint:
+      outputs[p_id].batch = outputs[p_id].batch[seed_size:]
 
     cumm_sampled_nbrs_per_node = outputs[p_id].metadata
 
@@ -482,6 +489,39 @@ class DistNeighborSampler():
     return outputs[p_id]
     
 
+  def merge_sampler_outputs_parallel(
+    self,
+    partition_ids: Tensor,
+    partition_orders: Tensor,
+    outputs: List[SamplerOutput],
+    one_hop_num: int,
+  ) -> SamplerOutput:
+    
+    sampled_nodes_with_dupl = [o.node if o is not None else None for o in outputs]
+    edge_ids = [o.edge if o is not None else None for o in outputs]
+    batch = [o.batch if o is not None else None for o in outputs] if self.disjoint else None
+    cumm_sampled_nbrs_per_node = [o.metadata if o is not None else None for o in outputs]
+
+    partition_ids = partition_ids.tolist()
+    partition_orders = partition_orders.tolist()
+
+    partitions_num = self.dist_graph.meta['num_parts']
+
+    out = torch.ops.pyg.merge_sampler_outputs(sampled_nodes_with_dupl, edge_ids,
+                              batch, cumm_sampled_nbrs_per_node, partition_ids,
+                              partition_orders, partitions_num, one_hop_num,
+                              self.disjoint)
+    (out_node_with_dupl, out_edge, out_batch, out_sampled_nbrs_per_node) = out
+    
+    return SamplerOutput(
+      out_node_with_dupl,
+      None,
+      None,
+      out_edge,
+      out_batch if self.disjoint else None,
+      metadata=(out_sampled_nbrs_per_node)
+    )
+
   def merge_sampler_outputs(
     self,
     partition_ids: Tensor,
@@ -490,7 +530,6 @@ class DistNeighborSampler():
     r""" Merge neighbor sampler outputs from different partitions
     """
     # TODO: move this function to C++
-
     partition_ids = partition_ids.tolist()
 
     node_with_dupl = []
@@ -504,19 +543,19 @@ class DistNeighborSampler():
     for p_id in partition_ids:
       if len(cumm_sampled_nbrs_per_node[p_id]) <= 1:
         continue
-      start = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
+      begin = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
 
-      start_edge = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id] - 1] if p_counters[p_id] != 0 else 0
+      begin_edge = begin - cumm_sampled_nbrs_per_node[p_id][0]
       p_counters[p_id] += 1
 
       end = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
-      end_edge = start
+      end_edge = end - cumm_sampled_nbrs_per_node[p_id][0]
 
-      node_with_dupl.append(outputs[p_id].node[start: end])
-      edge.append(outputs[p_id].edge[start_edge: end_edge])
-      batch.append(outputs[p_id].batch[start: end]) if self.disjoint else None
+      node_with_dupl.append(outputs[p_id].node[begin: end])
+      edge.append(outputs[p_id].edge[begin_edge: end_edge])
+      batch.append(outputs[p_id].batch[begin: end]) if self.disjoint else None
 
-      sampled_nbrs_per_node += [end - start]
+      sampled_nbrs_per_node += [end - begin]
 
     return SamplerOutput(
       torch.cat(node_with_dupl),
@@ -530,7 +569,6 @@ class DistNeighborSampler():
 
   def merge_sampler_outputs_wo_reorder(
     self,
-    partition_ids: Tensor,
     outputs: List[SamplerOutput],
   ) -> SamplerOutput:
     r""" Merge neighbor sampler outputs from different partitions
@@ -582,6 +620,7 @@ class DistNeighborSampler():
     src_ntype = (etype[0] if not self.csc else etype[2]) if etype is not None else None
     
     partition_ids = self.dist_graph.get_partition_ids_from_nids(srcs, src_ntype)
+    partition_orders = torch.zeros(len(partition_ids), dtype=torch.long)
 
     p_outputs: List[SamplerOutput] = [None] * self.dist_graph.meta['num_parts']
     futs: List[torch.futures.Future] = []
@@ -596,6 +635,9 @@ class DistNeighborSampler():
       p_srcs = torch.masked_select(srcs, p_mask)
       p_batch = torch.masked_select(batch, p_mask) if batch is not None else None
       p_seed_time = torch.masked_select(seed_time, p_mask) if seed_time is not None else None
+
+      p_indices = torch.arange(len(p_srcs), dtype=torch.long)
+      partition_orders[p_mask] = p_indices
 
       if p_srcs.shape[0] > 0:
         if p_id == self.dist_graph.partition_idx:
@@ -612,14 +654,15 @@ class DistNeighborSampler():
 
     # Only local nodes were sampled
     if local_only:
-      return self.get_sampled_nbrs_per_node(p_outputs)
+      return self.get_sampled_nbrs_per_node(p_outputs, len(srcs))
     # Sampled remote nodes
     res_fut_list = await wrap_torch_future(torch.futures.collect_all(futs))
     for i, res_fut in enumerate(res_fut_list):
       p_outputs.pop(p_id)
       p_outputs.insert(p_id, res_fut.wait())
 
-    return self.merge_sampler_outputs(partition_ids, p_outputs)
+    return self.merge_sampler_outputs_parallel(partition_ids, partition_orders, p_outputs, one_hop_num)
+
 
   async def _colloate_fn(
     self,

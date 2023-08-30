@@ -117,11 +117,12 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   # Create distributed neighbor loader for training
   train_idx = ('paper', train_idx.split(train_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
   
-  num_workers=0
-  concurrency=1
+  num_workers = 0
+  concurrency = 1
+  num_neighbors = [15, 10, 5]
   train_loader = pyg_dist.DistNeighborLoader(
     data=partition_data,
-    num_neighbors=[3, 2, 1],
+    num_neighbors=num_neighbors,
     input_nodes=train_idx,
     batch_size=batch_size,
     shuffle=True,
@@ -144,7 +145,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   test_loader = pyg_dist.DistNeighborLoader(
     data=partition_data,
     #data=dataset,
-    num_neighbors=[3, 2, 1],
+    num_neighbors=num_neighbors,
     input_nodes=test_idx,
     batch_size=batch_size,
     shuffle=True,

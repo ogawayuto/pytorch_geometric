@@ -206,7 +206,7 @@ class NeighborSampler(BaseSampler):
         batch: OptTensor = None,
         edge_type: EdgeType = None
       ) -> SamplerOutput:
-        rel_type = '__'.join(edge_type) if self.is_hetero else None
+        rel_type = '__'.join((edge_type[2], edge_type[1], edge_type[0])) if self.is_hetero else None # csc
         colptr = self.colptr if not self.is_hetero else self.colptr_dict[rel_type]
         row = self.row if not self.is_hetero else self.row_dict[rel_type]
         if self.node_time is not None:
