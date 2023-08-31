@@ -113,8 +113,8 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     train_idx = train_idx.split(
         train_idx.size(0) // num_training_procs_per_node)[local_proc_rank]
 
-    num_workers = 8
-    concurrency = 2
+    num_workers = 0
+    concurrency = 1
     num_neighbors = [15, 10, 5]
     train_loader = pyg_dist.DistNeighborLoader(
         data=partition_data, num_neighbors=num_neighbors,

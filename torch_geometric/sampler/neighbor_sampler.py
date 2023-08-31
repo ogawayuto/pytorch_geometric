@@ -25,11 +25,7 @@ from torch_geometric.sampler import (
     NodeSamplerInput,
     SamplerOutput,
 )
-from torch_geometric.sampler.base import (
-    DataType,
-    NumNeighbors,
-    SubgraphType,
-)
+from torch_geometric.sampler.base import DataType, NumNeighbors, SubgraphType
 from torch_geometric.sampler.utils import remap_keys, to_csc, to_hetero_csc
 from torch_geometric.typing import EdgeType, NodeType, OptTensor
 
@@ -213,8 +209,10 @@ class NeighborSampler(BaseSampler):
                        seed_time: Optional[Tensor] = None,
                        batch: OptTensor = None,
                        edge_type: EdgeType = None) -> SamplerOutput:
-        rel_type = '__'.join((edge_type[2], edge_type[1],
-                              edge_type[0])) if self.is_hetero else None  # csc
+        r""" Implements one-hop neighbor sampling for a :obj:`srcs`
+        leveraging a :obj:`neighbor_sample` function from :obj:`pyg-lib`.
+        """
+        rel_type = '__'.join(edge_type) if self.is_hetero else None  # csc
         colptr = self.colptr if not self.is_hetero else self.colptr_dict[
             rel_type]
         row = self.row if not self.is_hetero else self.row_dict[rel_type]
@@ -472,7 +470,7 @@ async def edge_sample_async(
     distributed: bool = False,
 ) -> Union[SamplerOutput, HeteroSamplerOutput]:
     r"""Performs sampling from an edge sampler input, leveraging a sampling
-    function of the same signature as `node_sample`."""
+    function of the same signature as `node_sample`"""
     input_id = inputs.input_id
     src = inputs.row
     dst = inputs.col
