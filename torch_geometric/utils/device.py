@@ -1,6 +1,3 @@
-import threading
-from typing import Optional
-
 import torch
 
 

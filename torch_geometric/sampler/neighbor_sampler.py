@@ -3,7 +3,7 @@ import copy
 import math
 import sys
 import warnings
-from typing import Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
@@ -27,7 +27,6 @@ from torch_geometric.sampler import (
 )
 from torch_geometric.sampler.base import (
     DataType,
-    NeighborOutput,
     NumNeighbors,
     SubgraphType,
 )
@@ -70,19 +69,15 @@ class NeighborSampler(BaseSampler):
         self.data_type = DataType.from_data(data)
         self.directed = directed
         self.is_hetero = is_hetero
-        # print(f"---- NeighborSampler: init()  self.data_type={self.data_type}--------")
         if self.data_type == DataType.homogeneous:
             self.is_hetero = False
             self.num_nodes = data.num_nodes
             self.node_time = data[time_attr] if time_attr else None
 
-            # print(f"---- NeighborSampler: init()   self.num_nodes={self.num_nodes},  -------")
             # Convert the graph data into CSC format for sampling:
             self.colptr, self.row, self.perm = to_csc(
                 data, device='cpu', share_memory=share_memory,
                 is_sorted=is_sorted, src_node_time=self.node_time)
-
-            # print(f"---- NeighborSampler: init()   self.num_nodes={self.num_nodes},  self.colptr={ self.colptr}, self.row={self.row}, self.perm={self.perm}--------")
 
         elif self.data_type == DataType.heterogeneous:
             self.is_hetero = True
@@ -109,7 +104,8 @@ class NeighborSampler(BaseSampler):
             node_attrs = feature_store.get_all_tensor_attrs()
             edge_attrs = graph_store.get_all_edge_attrs()
 
-            # infere hetero or homo - backwards compatibility hotfix (test failing)
+            # infere hetero or homo - backwards compatibility hotfix
+            # (test failing)
             try:
                 self.is_hetero = graph_store.meta["is_hetero"]
             except AttributeError:
@@ -165,7 +161,8 @@ class NeighborSampler(BaseSampler):
 
                 self.node_time: Optional[Dict[str, Tensor]] = None
                 if time_attr is not None:
-                    for attr in time_attrs:  # Reset the index to obtain full data.
+                    # Reset the index to obtain full data.
+                    for attr in time_attrs:
                         attr.index = None
                     time_tensors = feature_store.multi_get_tensor(time_attrs)
                     self.node_time = {
@@ -222,8 +219,8 @@ class NeighborSampler(BaseSampler):
             rel_type]
         row = self.row if not self.is_hetero else self.row_dict[rel_type]
         if self.node_time is not None:
-            node_time = self.node_time if not self.is_hetero else self.node_time[
-                edge_type[2]]  # csc
+            node_time = self.node_time if not self.is_hetero else \
+                self.node_time[edge_type[2]]  # csc
         else:
             node_time = None
         seed = srcs
@@ -231,7 +228,7 @@ class NeighborSampler(BaseSampler):
         out = torch.ops.pyg.neighbor_sample(
             colptr,
             row,
-            seed.to(colptr.dtype),  # seed
+            seed.to(colptr.dtype),
             [one_hop_num],
             node_time,
             seed_time,
@@ -437,7 +434,6 @@ def node_sample(
     r"""Performs sampling from a :class:`NodeSamplerInput`, leveraging a
     sampling function that accepts a seed and (optionally) a seed time as
     input. Returns the output of this sampling procedure."""
-    print(f"------  neighborSampler:  node_sample() -------")
     if inputs.input_type is not None:  # Heterogeneous sampling:
         seed = {inputs.input_type: inputs.node}
         seed_time = None

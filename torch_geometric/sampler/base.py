@@ -93,7 +93,6 @@ class NodeSamplerInput(CastMixin):
             self.input_type,
         )
 
-    ## below 3 from GLT
     def __len__(self):
         return self.node.numel()
 
@@ -170,7 +169,6 @@ class EdgeSamplerInput(CastMixin):
             self.input_type,
         )
 
-    ## below 3 from GLT
     def __len__(self):
         return self.row.numel()
 

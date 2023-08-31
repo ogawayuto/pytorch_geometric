@@ -118,11 +118,11 @@ class DistNeighborSampler:
         self.dist_feature = data[0]
         assert isinstance(
             self.dist_graph, LocalGraphStore
-        ), f"Provided data is in incorrect format: self.dist_graph must be "
+        ), "Provided data is in incorrect format: self.dist_graph must be "
         f"`LocalGraphStore`, got {type(self.dist_graph)}"
         assert isinstance(
             self.dist_feature, LocalFeatureStore
-        ), f"Provided data is in incorrect format: self.dist_feature must be "
+        ), "Provided data is in incorrect format: self.dist_feature must be "
         f"`LocalFeatureStore`, got {type(self.dist_feature)}"
         self.is_hetero = self.dist_graph.meta['is_hetero']
 
@@ -149,7 +149,7 @@ class DistNeighborSampler:
         self.rpc_router = RPCRouter(partition2workers)
         self.dist_feature.set_rpc_router(self.rpc_router)
 
-        print(f"---- 666.2 -------- register_rpc done    ")
+        print("---- 666.2 -------- register_rpc done    ")
 
         self._sampler = NeighborSampler(
             data=(self.dist_feature, self.dist_graph),
@@ -162,14 +162,14 @@ class DistNeighborSampler:
         )
 
         print(
-            "----------- DistNeighborSampler: after NeigborSampler()  ------------- "
+            "----------- DistNeighborSampler: after NeigborSampler()  ------ "
         )
 
         # rpc register
         rpc_sample_callee = RpcSamplingCallee(self._sampler, self.device)
         self.rpc_sample_callee_id = rpc_register(rpc_sample_callee)
 
-        print(f"---- 666.3 -------- register_rpc done    ")
+        print("---- 666.3 -------- register_rpc done    ")
 
     def init_event_loop(self):
 
@@ -214,7 +214,7 @@ class DistNeighborSampler:
                 edge_sample_async, inputs, self.node_sample,
                 self._sampler.num_nodes, self.disjoint,
                 self._sampler.node_time, neg_sampling, distributed=True))
-        
+
         # asynchronous sampling
         cb = kwargs.get('callback', None)
         self.event_loop.add_task(
@@ -240,6 +240,8 @@ class DistNeighborSampler:
         self,
         inputs: NodeSamplerInput,
     ) -> Union[SamplerOutput, HeteroSamplerOutput]:
+        r"""Performs distributed sampling from a :class:`NodeSamplerInput`.
+        TODO: add more comment"""
         seed = inputs.node.to(self.device)
         seed_time = inputs.time.to(
             self.device) if inputs.time is not None else None
@@ -629,14 +631,13 @@ class DistNeighborSampler:
     async def _colloate_fn(
         self, output: Union[SamplerOutput, HeteroSamplerOutput]
     ) -> Union[SamplerOutput, HeteroSamplerOutput]:
-        r""" Collect labels and features for the sampled subgrarph if necessary,
-        and put them into a sample message.
+        r""" Collect labels and features for the sampled subgrarph if
+        necessary, and put them into a sample message.
         """
         if self.is_hetero:
             nlabels = {}
             nfeats = {}
             efeats = {}
-            # print(f"seed: {output.metadata[0]}, output.node in collate: {output.node}")
             # Collect node labels of input node type.
             node_labels = self.dist_graph.labels
             if node_labels is not None:
@@ -695,7 +696,6 @@ class DistNeighborSampler:
             else:
                 efeats = None
 
-        # print(f"------- 777.4 ----- DistNSampler: _colloate_fn()  return -------")
         output.metadata = (*output.metadata, nfeats, nlabels, efeats)
         if self.is_hetero:
             output.row = remap_keys(output.row, self._sampler.to_edge_type)
