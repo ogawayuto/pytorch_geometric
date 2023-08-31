@@ -16,7 +16,6 @@ classes = [
     'HGTSampler',
     'NeighborOutput',
     'SamplingType',
-    
 ]
 
 sample_functions = [

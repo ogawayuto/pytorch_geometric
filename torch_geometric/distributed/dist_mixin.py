@@ -1,4 +1,3 @@
-
 class RpcMixin:
     r"""placeholder"""
-    pass         
+    pass

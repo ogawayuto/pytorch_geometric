@@ -57,9 +57,9 @@ class LocalFeatureStore(FeatureStore):
         self.num_partitions: int = 1
         self.partition_idx: int = 0
         self.node_feat_pb: Union[Tensor, Dict[NodeType, Tensor], Dict[EdgeType,
-                                                                    Tensor]]
-        self.edge_feat_pb: Optional[Union[Tensor, Dict[NodeType, Tensor], Dict[EdgeType,
-                                                            Tensor]]]
+                                                                      Tensor]]
+        self.edge_feat_pb: Optional[Union[Tensor, Dict[NodeType, Tensor],
+                                          Dict[EdgeType, Tensor]]]
         self.local_only: bool = False
         self.rpc_router: Optional[RPCRouter] = None
         self.meta: Optional[Dict] = None
@@ -126,7 +126,8 @@ class LocalFeatureStore(FeatureStore):
         attr = copy.copy(attr)
         print("get_tensor_from_global_id:", attr.group_name, attr.index)
         if attr.index is not None:
-            if max(attr.index) > self._global_id_to_index[attr.group_name].size(0):
+            if max(attr.index) > self._global_id_to_index[
+                    attr.group_name].size(0):
                 pass
         attr.index = self._global_id_to_index[attr.group_name][attr.index]
 
@@ -151,17 +152,17 @@ class LocalFeatureStore(FeatureStore):
         else:
             self.rpc_call_id = None
         return True
-    
+
     def has_edge_attr(self) -> bool:
         edge_keys = [key for key in self._feat.keys() if 'edge_attr' in key]
         for k in edge_keys:
             try:
-                self.get_tensor(k[0],'edge_attr')
+                self.get_tensor(k[0], 'edge_attr')
             except KeyError:
                 return False
             else:
                 return True
-                
+
     # lookup the distributed features
 
     def lookup_features(
@@ -171,11 +172,11 @@ class LocalFeatureStore(FeatureStore):
         input_type: Optional[Union[NodeType, EdgeType]] = None,
     ) -> torch.futures.Future:
         r""" Lookup the local/remote features based on node/edge ids """
-        pb = self.node_feat_pb if is_node_feat else self.edge_feat_pb 
+        pb = self.node_feat_pb if is_node_feat else self.edge_feat_pb
         remote_fut = self._remote_lookup_features(ids, pb, is_node_feat,
                                                   input_type)
         local_feature = self._local_lookup_features(ids, pb, is_node_feat,
-                                                  input_type)
+                                                    input_type)
         res_fut = torch.futures.Future()
 
         def when_finish(*_):

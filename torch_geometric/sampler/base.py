@@ -92,7 +92,7 @@ class NodeSamplerInput(CastMixin):
             self.time[index] if self.time is not None else None,
             self.input_type,
         )
-        
+
     ## below 3 from GLT
     def __len__(self):
         return self.node.numel()
@@ -104,7 +104,6 @@ class NodeSamplerInput(CastMixin):
     def to(self, device: torch.device):
         self.node.to(device)
         return self
-
 
 
 @dataclass(init=False)
@@ -636,8 +635,9 @@ class BaseSampler(ABC):
         expected return type is a permutation tensor for each edge type."""
         return None
 
+
 class NeighborOutput(CastMixin):
-  r""" The output of sampled neighbor results for a single hop sampling.
+    r""" The output of sampled neighbor results for a single hop sampling.
 
   Args:
     nbr (torch.Tensor): A 1D tensor of all sampled neighborhood node ids.
@@ -648,32 +648,32 @@ class NeighborOutput(CastMixin):
       edges (from source node to the sampled neighborhood node). Should be the
       same length as :obj:`nbr` if provided.
   """
-  nbr: torch.Tensor
-  nbr_num: torch.Tensor
-  edge: Optional[torch.Tensor]
+    nbr: torch.Tensor
+    nbr_num: torch.Tensor
+    edge: Optional[torch.Tensor]
 
-  def to(self, device: torch.device):
-    return NeighborOutput(
-      nbr=self.nbr.to(device),
-      nbr_num=self.nbr_num.to(device),
-      edge=(self.edge.to(device) if self.edge is not None else None)
-    )
+    def to(self, device: torch.device):
+        return NeighborOutput(
+            nbr=self.nbr.to(device), nbr_num=self.nbr_num.to(device),
+            edge=(self.edge.to(device) if self.edge is not None else None))
+
 
 class SamplingType(Enum):
-  r""" Enum class for sampling types.
+    r""" Enum class for sampling types.
   """
-  NODE = 0
-  LINK = 1
-  SUBGRAPH = 2
-  RANDOM_WALK = 3
+    NODE = 0
+    LINK = 1
+    SUBGRAPH = 2
+    RANDOM_WALK = 3
+
 
 class SamplingConfig:
-  r""" Configuration info for sampling.
+    r""" Configuration info for sampling.
   """
-  sampling_type: SamplingType
-  num_neighbors: Optional[NumNeighbors]
-  batch_size: int
-  shuffle: bool
-  drop_last: bool
-  with_edge: bool
-  collect_features: bool
+    sampling_type: SamplingType
+    num_neighbors: Optional[NumNeighbors]
+    batch_size: int
+    shuffle: bool
+    drop_last: bool
+    with_edge: bool
+    collect_features: bool

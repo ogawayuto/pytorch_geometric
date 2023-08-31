@@ -107,7 +107,6 @@ class GraphStore:
             :class:`EdgeAttr` class to customize the required attributes and
             their ordering to uniquely identify edges. (default: :obj:`None`)
     """
-
     def __init__(self, edge_attr_cls: Optional[Any] = None):
         super().__init__()
         self.__dict__['_edge_attr_cls'] = edge_attr_cls or EdgeAttr
@@ -323,9 +322,8 @@ class GraphStore:
             # Convert layout from its most favorable original layout:
             row, col, perm = [], [], []
             # for attrs in edge_attrs:
-            row, col, perm = (self._edge_to_layout(
-                edge_attrs[0],
-                layout, store))
+            row, col, perm = (self._edge_to_layout(edge_attrs[0], layout,
+                                                   store))
 
             return row, col, perm
         else:
@@ -344,7 +342,8 @@ class GraphStore:
 
                 edge_type_attrs = {
                     key: attr
-                    for key, attr in edge_type_attrs.items() if key in edge_types
+                    for key, attr in edge_type_attrs.items()
+                    if key in edge_types
                 }
 
             # Convert layout from its most favorable original layout:
@@ -361,7 +360,7 @@ class GraphStore:
                 elif EdgeLayout.CSR in layouts:
                     attr = attrs[layouts.index(EdgeLayout.CSR)]
 
-                row_dict[edge_type], col_dict[edge_type], perm_dict[edge_type] = (
-                    self._edge_to_layout(attr, layout, store))
+                row_dict[edge_type], col_dict[edge_type], perm_dict[
+                    edge_type] = (self._edge_to_layout(attr, layout, store))
 
             return row_dict, col_dict, perm_dict

@@ -1,12 +1,11 @@
-
 import threading
 from typing import Optional
 
 import torch
 
+
 def ensure_device(device: torch.device):
-  r""" Make sure that current cuda kernel corresponds to the assigned device.
+    r""" Make sure that current cuda kernel corresponds to the assigned device.
   """
-  if (device.type == 'cuda' and
-      device.index != torch.cuda.current_device()):
-    torch.cuda.set_device(device)
+    if (device.type == 'cuda' and device.index != torch.cuda.current_device()):
+        torch.cuda.set_device(device)

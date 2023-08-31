@@ -9,9 +9,6 @@ from torch_geometric.data import EdgeAttr, GraphStore
 from torch_geometric.typing import EdgeTensorType, EdgeType, NodeType
 
 
-
-
-
 class LocalGraphStore(GraphStore):
     r"""This class implements the :class:`torch_geometric.data.GraphStore`
     interface to act as a local graph store for distributed training."""
@@ -36,14 +33,12 @@ class LocalGraphStore(GraphStore):
         return (attr.edge_type, attr.layout.value)
 
     def get_partition_ids_from_nids(self, ids: torch.Tensor,
-                            node_type: Optional[NodeType]=None):
+                                    node_type: Optional[NodeType] = None):
         return self.node_pb[ids]
 
     def get_partition_ids_from_eids(self, eids: torch.Tensor,
-                            edge_type: Optional[EdgeType]=None):
+                                    edge_type: Optional[EdgeType] = None):
         return self.edge_pb[eids]
-
-
 
     # starting for graph ..
 
@@ -153,16 +148,17 @@ class LocalGraphStore(GraphStore):
 
         if not meta['is_hetero']:
             attr = dict(edge_type=None, layout='coo', size=graph_data['size'])
-            graph_store.put_edge_index(torch.stack((graph_data['row'], graph_data['col']),dim=0),
-                                       **attr)
+            graph_store.put_edge_index(
+                torch.stack((graph_data['row'], graph_data['col']), dim=0),
+                **attr)
             graph_store.put_edge_id(graph_data['edge_id'], **attr)
 
         if meta['is_hetero']:
             for edge_type, data in graph_data.items():
                 attr = dict(edge_type=edge_type, layout='coo',
                             size=data['size'])
-                graph_store.put_edge_index(torch.stack((data['row'], data['col']),dim=0),
-                                       **attr)
+                graph_store.put_edge_index(
+                    torch.stack((data['row'], data['col']), dim=0), **attr)
                 #graph_store.put_edge_index((data['row'], data['col']), **attr)
                 graph_store.put_edge_id(data['edge_id'], **attr)
 
