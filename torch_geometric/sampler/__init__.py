@@ -1,6 +1,6 @@
 from .base import (BaseSampler, NodeSamplerInput, EdgeSamplerInput,
                    SamplerOutput, HeteroSamplerOutput, NegativeSampling,
-                   NumNeighbors, SamplingConfig, SamplingType, NeighborOutput)
+                   NumNeighbors)
 from .neighbor_sampler import NeighborSampler, edge_sample_async
 from .hgt_sampler import HGTSampler
 
@@ -14,12 +14,10 @@ classes = [
     'NegativeSampling',
     'NeighborSampler',
     'HGTSampler',
-    'NeighborOutput',
-    'SamplingType',
 ]
 
-sample_functions = [
+functions = [
     'edge_sample_async',
 ]
 
-__all__ = classes + sample_functions
+__all__ = classes + functions

@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -21,6 +20,7 @@ from torch_geometric.distributed.rpc import (
     rpc_register,
     shutdown_rpc,
 )
+from torch_geometric.distributed.utils import BatchDict, NodeDict
 from torch_geometric.sampler import (
     EdgeSamplerInput,
     HeteroSamplerOutput,
@@ -40,7 +40,6 @@ from torch_geometric.typing import (
     OptTensor,
     Tuple,
 )
-from torch_geometric.utils import ensure_device
 
 
 class RpcSamplingCallee(RPCCallBase):
@@ -53,60 +52,12 @@ class RpcSamplingCallee(RPCCallBase):
         self.device = device
 
     def rpc_async(self, *args, **kwargs):
-        output = self.sampler.sample_one_hop(*args, **kwargs)
+        output = self.sampler._sample_one_hop(*args, **kwargs)
 
         return output
 
     def rpc_sync(self, *args, **kwargs):
         pass
-
-
-@dataclass
-class NodeDict:
-    r""" Class used during hetero sampling. It contains fields that refer to
-    NodeDict in three situations:
-    1) the nodes are to serve as srcs in the next layer,
-    2) nodes with duplicates, that are further needed to create COO output
-       matrix,
-    3) output nodes without duplicates.
-    """
-    def __init__(self, node_types):
-        self.src: Dict[NodeType, Tensor] = {}
-        self.with_dupl: Dict[NodeType, Tensor] = {}
-        self.out: Union[OrderedSet[List[int]], Dict[NodeType, Tensor]] = {}
-
-        for ntype in node_types:
-            self.src.update({ntype: torch.empty(0, dtype=torch.int64)})
-            self.with_dupl.update({ntype: torch.empty(0, dtype=torch.int64)})
-            self.out.update({ntype: OrderedSet([])})
-
-
-@dataclass
-class BatchDict:
-    r""" Class used during disjoint hetero sampling. It contains fields that
-    refer to BatchDict in three situations:
-    1) the batch is to serve as initial subgraph ids for src nodes in the next
-       layer,
-    2) subgraph ids with duplicates, that are further needed to create COO
-       output matrix,
-    3) output subgraph ids without duplicates.
-    """
-    def __init__(self, node_types, disjoint):
-        self.src: Dict[NodeType, Tensor] = {}
-        self.with_dupl: Dict[NodeType, Tensor] = {}
-        self.out: Dict[NodeType, Tensor] = {}
-        self.disjoint = disjoint
-
-        if not self.disjoint:
-            for ntype in node_types:
-                self.src.update({ntype: torch.empty(0, dtype=torch.int64)})
-                self.with_dupl.update(
-                    {ntype: torch.empty(0, dtype=torch.int64)})
-                self.out.update({ntype: torch.empty(0, dtype=torch.int64)})
-        else:
-            self.src = None
-            self.with_dupl = None
-            self.out = None
 
 
 class DistNeighborSampler:
@@ -184,7 +135,7 @@ class DistNeighborSampler:
 
     def init_event_loop(self):
         self.event_loop = ConcurrentEventLoop(self.concurrency)
-        self.event_loop._loop.call_soon_threadsafe(ensure_device, self.device)
+        self.event_loop._loop.call_soon_threadsafe(self.device)
         self.event_loop.start_loop()
 
     # Node-based distributed sampling #########################################
@@ -308,9 +259,9 @@ class DistNeighborSampler:
                             List) else self.num_neighbors[etype][i]
 
                         task_dict[etype] = self.event_loop._loop.create_task(
-                            self._sample_one_hop(node_dict.src[src],
-                                                 one_hop_num, seed_time,
-                                                 batch_dict.src[src], etype))
+                            self.sample_one_hop(node_dict.src[src],
+                                                one_hop_num, seed_time,
+                                                batch_dict.src[src], etype))
 
                 for etype, task in task_dict.items():
                     out: HeteroSamplerOutput = await task
@@ -389,8 +340,8 @@ class DistNeighborSampler:
 
             # loop over the layers
             for one_hop_num in self.num_neighbors:
-                out = await self._sample_one_hop(src, one_hop_num, seed_time,
-                                                 src_batch)
+                out = await self.sample_one_hop(src, one_hop_num, seed_time,
+                                                src_batch)
 
                 # remove duplicates
                 # TODO: find better method to remove duplicates
@@ -469,7 +420,7 @@ class DistNeighborSampler:
 
         return outputs[p_id]
 
-    def merge_sampler_outputs_parallel(
+    def merge_sampler_outputs(
         self,
         partition_ids: Tensor,
         partition_orders: Tensor,
@@ -481,10 +432,6 @@ class DistNeighborSampler:
         sampled nodes and calculates how many neighbors were sampled by each
         src node based on the :obj:`cumm_sampled_nbrs_per_node`. Leverages the
         :obj:`pyg-lib` :obj:`merge_sampler_outputs` function.
-
-        Note:
-            This function is a C++ parallel implementation of a
-            :obj:`merge_sampler_outputs`.
 
         Args:
             partition_ids (torch.Tensor): Contains information on which
@@ -523,54 +470,7 @@ class DistNeighborSampler:
                              out_batch if self.disjoint else None,
                              metadata=(out_sampled_nbrs_per_node))
 
-    def merge_sampler_outputs(
-        self,
-        partition_ids: Tensor,
-        outputs: List[SamplerOutput],
-    ) -> SamplerOutput:
-        r""" Merges samplers outputs from different partitions, so that they
-         are sorted according to the sampling order. Removes seed nodes from
-        sampled nodes and calculates how many neighbors were sampled by each
-        src node based on the :obj:`cumm_sampled_nbrs_per_node`.
-
-        Returns :obj:`SamplerOutput` containing all merged outputs.
-        """
-        partition_ids = partition_ids.tolist()
-
-        node_with_dupl = []
-        edge = []
-        batch = []
-        sampled_nbrs_per_node = []
-
-        p_counters = [0] * self.dist_graph.meta['num_parts']
-        cumm_sampled_nbrs_per_node = [
-            o.metadata if o is not None else None for o in outputs
-        ]
-
-        for p_id in partition_ids:
-            if len(cumm_sampled_nbrs_per_node[p_id]) <= 1:
-                continue
-            begin = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
-
-            begin_edge = begin - cumm_sampled_nbrs_per_node[p_id][0]
-            p_counters[p_id] += 1
-
-            end = cumm_sampled_nbrs_per_node[p_id][p_counters[p_id]]
-            end_edge = end - cumm_sampled_nbrs_per_node[p_id][0]
-
-            node_with_dupl.append(outputs[p_id].node[begin:end])
-            edge.append(outputs[p_id].edge[begin_edge:end_edge])
-            batch.append(
-                outputs[p_id].batch[begin:end]) if self.disjoint else None
-
-            sampled_nbrs_per_node += [end - begin]
-
-        return SamplerOutput(torch.cat(node_with_dupl), None, None,
-                             torch.cat(edge),
-                             torch.cat(batch) if self.disjoint else None,
-                             metadata=(sampled_nbrs_per_node))
-
-    async def _sample_one_hop(
+    async def sample_one_hop(
         self,
         srcs: Tensor,
         one_hop_num: int,
@@ -579,9 +479,9 @@ class DistNeighborSampler:
         etype: Optional[EdgeType] = None,
     ) -> SamplerOutput:
         r""" Sample one-hop neighbors for a :obj:`srcs`. If src node is located
-        on a local partition, evaluates the :obj:`sample_one_hop` function on a
-        current machine. If src node is from a remote partition, send a request
-        to a machine that contains this partition.
+        on a local partition, evaluates the :obj:`_sample_one_hop` function on
+        a current machine. If src node is from a remote partition, send a
+        request to a remote machine that contains this partition.
 
         Returns merged samplers outputs from local / remote machines.
         """
@@ -614,8 +514,9 @@ class DistNeighborSampler:
             if p_srcs.shape[0] > 0:
                 if p_id == self.dist_graph.partition_idx:
                     # sample on local machine
-                    p_nbr_out = self._sampler.sample_one_hop(
-                        p_srcs, one_hop_num, p_seed_time, p_batch, etype)
+                    p_nbr_out = self._sampler._sample_one_hop(
+                        p_srcs, one_hop_num, p_seed_time, p_batch, self.csc,
+                        etype)
                     p_outputs.pop(p_id)
                     p_outputs.insert(p_id, p_nbr_out)
                 else:
@@ -638,12 +539,8 @@ class DistNeighborSampler:
             p_outputs.pop(p_id)
             p_outputs.insert(p_id, res_fut.wait())
 
-        out_py = self.merge_sampler_outputs(partition_ids, p_outputs)
-        out_cpp = self.merge_sampler_outputs_parallel(partition_ids,
-                                                      partition_orders,
-                                                      p_outputs, one_hop_num)
-
-        return out_cpp
+        return self.merge_sampler_outputs(partition_ids, partition_orders,
+                                          p_outputs, one_hop_num)
 
     async def _colloate_fn(
         self, output: Union[SamplerOutput, HeteroSamplerOutput]
@@ -712,9 +609,6 @@ class DistNeighborSampler:
             output.col = remap_keys(output.col, self._sampler.to_edge_type)
         return output
 
-    def __repr__(self):
-        return f"{self.__class__.__name__}()-PID{mp.current_process().pid}"
-
 
 # Sampling Utilities ##########################################################
 
@@ -722,9 +616,7 @@ class DistNeighborSampler:
 def close_sampler(worker_id, sampler):
     # Make sure that mp.Queue is empty at exit and RAM is cleared
     try:
-        print(f"Closing event_loop in {repr(sampler)} worker-id {worker_id}")
         sampler.event_loop.shutdown_loop()
     except AttributeError:
         pass
-    print(f"Closing rpc in {repr(sampler)} worker-id {worker_id}")
     shutdown_rpc(graceful=True)

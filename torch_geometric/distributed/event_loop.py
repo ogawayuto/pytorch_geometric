@@ -6,8 +6,7 @@ import torch
 
 
 def wrap_torch_future(f: torch.futures.Future) -> asyncio.futures.Future:
-    r""" Convert a torch future to a standard asyncio future.
-  """
+    r""" Convert a torch future to a standard asyncio future."""
     loop = asyncio.get_event_loop()
     aio_future = loop.create_future()
 
@@ -26,9 +25,9 @@ def wrap_torch_future(f: torch.futures.Future) -> asyncio.futures.Future:
 class ConcurrentEventLoop(object):
     r""" Concurrent event loop context.
 
-  Args:
-    concurrency: max processing concurrency.
-  """
+    Args:
+        concurrency: max processing concurrency.
+    """
     def __init__(self, concurrency):
         self._concurrency = concurrency
         self._sem = BoundedSemaphore(concurrency)
@@ -47,8 +46,7 @@ class ConcurrentEventLoop(object):
             self._runner_t.join(timeout=1)
 
     def wait_all(self):
-        r""" Wait all pending tasks to be finished.
-    """
+        r""" Wait all pending tasks to be finished."""
         for _ in range(self._concurrency):
             self._sem.acquire()
         for _ in range(self._concurrency):
@@ -57,15 +55,15 @@ class ConcurrentEventLoop(object):
     def add_task(self, coro, callback=None):
         r""" Add an asynchronized coroutine task to run.
 
-    Args:
-      coro: the async coroutine func.
-      callback: the callback func applied on the returned results
-        after the coroutine task is finished.
+        Args:
+        coro: the async coroutine func.
+        callback: the callback func applied on the returned results
+            after the coroutine task is finished.
 
-    Note that any results returned by `callback` func will be ignored,
-    so it is preferable to handle all in your `callback` func and do
-    not return any results.
-    """
+        Note that any results returned by `callback` func will be ignored,
+        so it is preferable to handle all in your `callback` func and do
+        not return any results.
+        """
         def on_done(f: asyncio.futures.Future):
             try:
                 res = f.result()
@@ -81,7 +79,7 @@ class ConcurrentEventLoop(object):
 
     def run_task(self, coro):
         r""" Run a coroutine task synchronously.
-    """
+        """
         with self._sem:
             fut = asyncio.run_coroutine_threadsafe(coro, self._loop)
             return fut.result()
