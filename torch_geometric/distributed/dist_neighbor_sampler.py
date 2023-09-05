@@ -31,13 +31,12 @@ from torch_geometric.sampler import (
     SamplerOutput,
     edge_sample_async,
 )
-from torch_geometric.sampler.base import SubgraphType
+from torch_geometric.sampler.base import SubgraphType, NumNeighbors
 from torch_geometric.sampler.utils import remap_keys
 from torch_geometric.typing import (
     Dict,
     EdgeType,
     NodeType,
-    NumNeighbors,
     OptTensor,
     Tuple,
 )
