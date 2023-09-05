@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -110,12 +111,12 @@ class DistNeighborSampler:
         self.csc = True  # always true?
         self.with_edge_attr = self.dist_feature.has_edge_attr()
 
-    def register_sampler_rpc(self):
+    def register_sampler_rpc(self) -> None:
+
         partition2workers = rpc_partition_to_workers(
             current_ctx=self.current_ctx,
             num_partitions=self.dist_graph.num_partitions,
             current_partition_idx=self.dist_graph.partition_idx)
-
         self.rpc_router = RPCRouter(partition2workers)
         self.dist_feature.set_rpc_router(self.rpc_router)
 
@@ -128,14 +129,11 @@ class DistNeighborSampler:
             temporal_strategy=self.temporal_strategy,
             time_attr=self.time_attr,
         )
-
-        # rpc register
         rpc_sample_callee = RpcSamplingCallee(self._sampler, self.device)
         self.rpc_sample_callee_id = rpc_register(rpc_sample_callee)
 
-    def init_event_loop(self):
+    def init_event_loop(self) -> None:
         self.event_loop = ConcurrentEventLoop(self.concurrency)
-        self.event_loop._loop.call_soon_threadsafe(self.device)
         self.event_loop.start_loop()
 
     # Node-based distributed sampling #########################################
@@ -545,8 +543,8 @@ class DistNeighborSampler:
     async def _colloate_fn(
         self, output: Union[SamplerOutput, HeteroSamplerOutput]
     ) -> Union[SamplerOutput, HeteroSamplerOutput]:
-        r""" Collect labels and features for the sampled subgraph if
-        necessary, and put them into a sample message.
+        r""" Collect labels and features for the sampled subgrarph if necessary,
+        and put them into a sample message.
         """
         if self.is_hetero:
             nlabels = {}
@@ -564,6 +562,9 @@ class DistNeighborSampler:
                         fut = self.dist_feature.lookup_features(
                             is_node_feat=True, ids=output.node[ntype],
                             input_type=ntype)
+                        print('node fut')
+                        print({max(output.node[ntype])},
+                              {self.dist_feature.node_feat_pb.size()})
                         nfeat = await wrap_torch_future(fut)
                         nfeat = nfeat.to(torch.device('cpu'))
                         nfeats[ntype] = nfeat
@@ -576,6 +577,10 @@ class DistNeighborSampler:
                         fut = self.dist_feature.lookup_features(
                             is_node_feat=False, ids=output.edge[etype],
                             input_type=etype)
+                        print('edge fut')
+                        print(
+                            f'{max(output.edge[etype])}, {self.dist_feature.edge_feat_pb.size()}'
+                        )
                         efeat = await wrap_torch_future(fut)
                         efeat = efeat.to(torch.device('cpu'))
                         efeats[etype] = efeat
@@ -609,6 +614,9 @@ class DistNeighborSampler:
             output.col = remap_keys(output.col, self._sampler.to_edge_type)
         return output
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}()-PID{mp.current_process().pid}"
+
 
 # Sampling Utilities ##########################################################
 
@@ -616,7 +624,9 @@ class DistNeighborSampler:
 def close_sampler(worker_id, sampler):
     # Make sure that mp.Queue is empty at exit and RAM is cleared
     try:
+        logging.info(f"Closing event_loop in {sampler} worker-id {worker_id}")
         sampler.event_loop.shutdown_loop()
     except AttributeError:
         pass
+    logging.info(f"Closing rpc in {sampler} worker-id {worker_id}")
     shutdown_rpc(graceful=True)
