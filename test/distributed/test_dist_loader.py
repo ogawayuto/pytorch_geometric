@@ -20,12 +20,7 @@ from torch_geometric.distributed.dist_neighbor_sampler import (
     DistNeighborSampler,
 )
 from torch_geometric.distributed.partition import load_partition_info
-from torch_geometric.sampler import NegativeSampling
-from torch_geometric.testing import (
-    get_random_edge_index,
-    onlyLinux,
-    withPackage,
-)
+from torch_geometric.testing import onlyLinux
 from torch_geometric.typing import WITH_METIS
 
 
