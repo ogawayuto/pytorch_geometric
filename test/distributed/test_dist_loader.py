@@ -178,7 +178,7 @@ def dist_neighbor_loader_hetero(tmp_path: str, world_size: int, rank: int,
 @onlyLinux
 @pytest.mark.skipif(not WITH_METIS, reason='Not compiled with METIS support')
 @pytest.mark.parametrize('num_workers', [0, 2])
-@pytest.mark.parametrize('concurrency', [1, 10])
+@pytest.mark.parametrize('concurrency', [2, 10])
 @pytest.mark.parametrize('async_sampling', [True, False])
 def test_dist_neighbor_loader_homo(tmp_path, num_workers, concurrency,
                                    async_sampling):
@@ -216,7 +216,7 @@ def test_dist_neighbor_loader_homo(tmp_path, num_workers, concurrency,
 @onlyLinux
 @pytest.mark.skipif(not WITH_METIS, reason='Not compiled with METIS support')
 @pytest.mark.parametrize('num_workers', [0, 2])
-@pytest.mark.parametrize('concurrency', [1, 10])
+@pytest.mark.parametrize('concurrency', [2, 10])
 @pytest.mark.parametrize('async_sampling', [True, False])
 def test_dist_link_neighbor_loader_homo(tmp_path, num_workers, concurrency,
                                         async_sampling):

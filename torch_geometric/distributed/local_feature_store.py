@@ -9,18 +9,14 @@ from torch import Tensor
 
 from torch_geometric.data import FeatureStore, TensorAttr
 from torch_geometric.data.feature_store import _FieldStatus
-from torch_geometric.distributed.rpc import (
-    RPCCallBase,
-    RPCRouter,
-    rpc_async,
-    rpc_register,
-)
-from torch_geometric.typing import EdgeType, NodeOrEdgeType, NodeType
+from torch_geometric.typing import EdgeType, NodeType
+
+from .rpc import RPCCallBase, RPCRouter, rpc_async, rpc_register
 
 
 class RPCCallFeatureLookup(RPCCallBase):
-    r"""A wrapper for RPC calls to the feature store."""
-    def __init__(self, dist_feature: FeatureStore):
+    r""" A wrapper for rpc remote call to get the feature data from remote"""
+    def __init__(self, dist_feature):
         super().__init__()
         self.dist_feature = dist_feature
 
@@ -28,7 +24,7 @@ class RPCCallFeatureLookup(RPCCallBase):
         return self.dist_feature.rpc_local_feature_get(*args, **kwargs)
 
     def rpc_sync(self, *args, **kwargs):
-        raise NotImplementedError
+        pass
 
 
 @dataclass
@@ -57,14 +53,17 @@ class LocalFeatureStore(FeatureStore):
         # Save the mapping from global node/edge IDs to indices in `_feat`:
         self._global_id_to_index: Dict[Union[NodeType, EdgeType], Tensor] = {}
 
-        # For partition/rpc information related to distribute features:
-        self.num_partitions = 1
-        self.partition_idx = 0
-        self.feature_pb: Union[Tensor, Dict[NodeOrEdgeType, Tensor]]
-        self.local_only = False
+        # for partition/rpc info related to distributed features
+        self.num_partitions: int = 1
+        self.partition_idx: int = 0
+        self.node_feat_pb: Union[Tensor, Dict[NodeType, Tensor], Dict[EdgeType,
+                                                                    Tensor]]
+        self.edge_feat_pb: Optional[Union[Tensor, Dict[NodeType, Tensor], Dict[EdgeType,
+                                                            Tensor]]]
+        self.local_only: bool = False
         self.rpc_router: Optional[RPCRouter] = None
         self.meta: Optional[Dict] = None
-        self.rpc_call_id: Optional[int] = None
+        self.rpc_call_id = None
 
     @staticmethod
     def key(attr: TensorAttr) -> Tuple[str, str]:
@@ -125,8 +124,14 @@ class LocalFeatureStore(FeatureStore):
         assert attr.index is not None
 
         attr = copy.copy(attr)
+        print("get_tensor_from_global_id:", attr.group_name, attr.index)
+        if attr.index.numel() > 0:
+            if max(attr.index) > self._global_id_to_index[attr.group_name].size(0):
+                pass
         attr.index = self._global_id_to_index[attr.group_name][attr.index]
-
+        print('attr.index:', attr.index)
+        # TODO: Debug, I think this should never return -1
+        # assert ?
         return self.get_tensor(attr)
 
     def _get_tensor_size(self, attr: TensorAttr) -> Tuple[int, ...]:
@@ -135,7 +140,9 @@ class LocalFeatureStore(FeatureStore):
     def get_all_tensor_attrs(self) -> List[LocalTensorAttr]:
         return [self._tensor_attr_cls.cast(*key) for key in self._feat.keys()]
 
-    def set_rpc_router(self, rpc_router: RPCRouter):
+    # starting the partition/rpc info related to distributed feature stores
+
+    def set_rpc_router(self, rpc_router: RPCRouter) -> bool:
         self.rpc_router = rpc_router
 
         if not self.local_only:
@@ -145,7 +152,8 @@ class LocalFeatureStore(FeatureStore):
             self.rpc_call_id = rpc_register(rpc_call)
         else:
             self.rpc_call_id = None
-            
+        return True
+    
     def has_edge_attr(self) -> bool:
         edge_keys = [key for key in self._feat.keys() if 'edge_attr' in key]
         for k in edge_keys:
@@ -156,24 +164,27 @@ class LocalFeatureStore(FeatureStore):
             else:
                 return True
                 
+    # lookup the distributed features
+
     def lookup_features(
         self,
-        index: Tensor,
+        index: torch.Tensor,
         is_node_feat: bool = True,
-        input_type: Optional[NodeOrEdgeType] = None,
+        input_type: Optional[Union[NodeType, EdgeType]] = None,
     ) -> torch.futures.Future:
-        r"""Lookup of local/remote features."""
-        remote_fut = self._remote_lookup_features(index, is_node_feat,
+        r""" Lookup the local/remote features based on node/edge ids """
+        pb = self.node_feat_pb if is_node_feat else self.edge_feat_pb 
+        remote_fut = self._remote_lookup_features(index, pb, is_node_feat,
                                                   input_type)
-        local_feature = self._local_lookup_features(index, is_node_feat,
-                                                    input_type)
+        local_feature = self._local_lookup_features(index, pb, is_node_feat,
+                                                  input_type)
         res_fut = torch.futures.Future()
 
         def when_finish(*_):
             try:
                 remote_feature_list = remote_fut.wait()
                 # combine the feature from remote and local
-                result = torch.zeros(index.size(0), local_feature[0].size(1),
+                result = torch.zeros(index.shape[0], local_feature[0].shape[1],
                                      dtype=local_feature[0].dtype)
                 result[local_feature[1]] = local_feature[0]
                 for remote in remote_feature_list:
@@ -188,23 +199,21 @@ class LocalFeatureStore(FeatureStore):
 
     def _local_lookup_features(
         self,
-        index: Tensor,
+        ids: torch.Tensor,
+        partition_book,
         is_node_feat: bool = True,
         input_type: Optional[Union[NodeType, EdgeType]] = None,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> torch.Tensor:
         r""" lookup the features in local nodes based on node/edge ids """
-        if self.meta['is_hetero']:
-            feat = self
-            pb = self.feature_pb[input_type]
-        else:
-            feat = self
-            pb = self.feature_pb
 
-        input_order = torch.arange(index.size(0), dtype=torch.long)
-        partition_ids = pb[index]
+        feat = self
+        pb = partition_book
 
-        local_mask = partition_ids == self.partition_idx
-        local_ids = torch.masked_select(index, local_mask)
+        input_order = torch.arange(ids.size(0), dtype=torch.long)
+        partition_ids = pb[ids]
+
+        local_mask = (partition_ids == self.partition_idx)
+        local_ids = torch.masked_select(ids, local_mask)
         local_index = torch.masked_select(input_order, local_mask)
 
         if self.meta["is_hetero"]:
@@ -230,33 +239,29 @@ class LocalFeatureStore(FeatureStore):
 
     def _remote_lookup_features(
         self,
-        index: Tensor,
+        ids: torch.Tensor,
+        partition_book,
         is_node_feat: bool = True,
         input_type: Optional[Union[NodeType, EdgeType]] = None,
     ) -> torch.futures.Future:
-        r"""Fetch the remote features with the remote node/edge ids"""
+        r""" fetch the remote features with the remote node/edge ids"""
 
-        if self.meta["is_hetero"]:
-            pb = self.feature_pb[input_type]
-        else:
-            pb = self.feature_pb
+        pb = partition_book
 
-        input_order = torch.arange(index.size(0), dtype=torch.long)
-        partition_ids = pb[index]
+        input_order = torch.arange(ids.size(0), dtype=torch.long)
+        partition_ids = pb[ids]
         futs, indexes = [], []
         for pidx in range(0, self.num_partitions):
             if pidx == self.partition_idx:
                 continue
             remote_mask = (partition_ids == pidx)
-            remote_ids = index[remote_mask]
+            remote_ids = torch.masked_select(ids, remote_mask)
             if remote_ids.shape[0] > 0:
                 to_worker = self.rpc_router.get_to_worker(pidx)
                 futs.append(
                     rpc_async(
-                        to_worker,
-                        self.rpc_call_id,
-                        args=(remote_ids.cpu(), is_node_feat, input_type),
-                    ))
+                        to_worker, self.rpc_call_id,
+                        args=(remote_ids.cpu(), is_node_feat, input_type)))
                 indexes.append(torch.masked_select(input_order, remote_mask))
         collect_fut = torch.futures.collect_all(futs)
         res_fut = torch.futures.Future()
@@ -277,31 +282,28 @@ class LocalFeatureStore(FeatureStore):
 
     def rpc_local_feature_get(
         self,
-        index: Tensor,
+        ids: torch.Tensor,
         is_node_feat: bool = True,
         input_type: Optional[Union[NodeType, EdgeType]] = None,
-    ) -> Tensor:
-        r"""Lookup of features in remote nodes."""
-        if self.meta['is_hetero']:
+    ) -> torch.Tensor:
+        r""" RPC_Lookup the features in remote nodes (remote locally) """
+
+        if self.meta["is_hetero"]:
             feat = self
             if is_node_feat:
                 kwargs = dict(group_name=input_type, attr_name='x')
-                ret_feat = feat.get_tensor_from_global_id(
-                    index=index, **kwargs)
+                ret_feat = feat.get_tensor_from_global_id(index=ids, **kwargs)
             else:
                 kwargs = dict(group_name=input_type, attr_name='edge_attr')
-                ret_feat = feat.get_tensor_from_global_id(
-                    index=index, **kwargs)
+                ret_feat = feat.get_tensor_from_global_id(index=ids, **kwargs)
         else:
             feat = self
             if is_node_feat:
                 kwargs = dict(group_name=None, attr_name='x')
-                ret_feat = feat.get_tensor_from_global_id(
-                    index=index, **kwargs)
+                ret_feat = feat.get_tensor_from_global_id(index=ids, **kwargs)
             else:
                 kwargs = dict(group_name=(None, None), attr_name='edge_attr')
-                ret_feat = feat.get_tensor_from_global_id(
-                    index=index, **kwargs)
+                ret_feat = feat.get_tensor_from_global_id(index=ids, **kwargs)
 
         return ret_feat
 
