@@ -168,11 +168,12 @@ def dist_neighbor_loader_hetero(tmp_path: str, world_size: int, rank: int,
             assert batch.x_dict[ntype].size(0) >= 0
             assert batch[ntype].n_id.size() == (batch[ntype].num_nodes, )
         assert len(batch.edge_types) == 4
-        for etype in batch.edge_types[:2]:
-            assert batch[etype].edge_index.device == device
-            assert batch[etype].edge_attr.device == device
-            assert batch[etype].edge_attr.size(
-                0) == batch[etype].edge_index.size(1)
+        for etype in batch.edge_types:
+            if batch[etype].edge_index.numel() > 0:
+                assert batch[etype].edge_index.device == device
+                assert batch[etype].edge_attr.device == device
+                assert batch[etype].edge_attr.size(
+                    0) == batch[etype].edge_index.size(1)
 
 
 @onlyLinux

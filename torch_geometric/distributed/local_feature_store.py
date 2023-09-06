@@ -124,14 +124,13 @@ class LocalFeatureStore(FeatureStore):
         assert attr.index is not None
 
         attr = copy.copy(attr)
-        print("get_tensor_from_global_id:", attr.group_name, attr.index)
+        print("get_tensor_from_global_id", attr.group_name, "\nattr.index:", attr.index)
         if attr.index.numel() > 0:
             if max(attr.index) > self._global_id_to_index[attr.group_name].size(0):
                 pass
         attr.index = self._global_id_to_index[attr.group_name][attr.index]
-        print('attr.index:', attr.index)
-        # TODO: Debug, I think this should never return -1
-        # assert ?
+        print("\nattr_global_id:", attr.index)       
+       # TODO: Debug, I think this should never return -1
         return self.get_tensor(attr)
 
     def _get_tensor_size(self, attr: TensorAttr) -> Tuple[int, ...]:
