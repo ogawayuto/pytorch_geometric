@@ -1,6 +1,5 @@
 import torch_geometric.distributed as pyg_dist
-from torch_geometric.typing import Tuple
-from torch_geometric.distributed.dist_context import DistContext, DistRole
+from torch_geometric.distributed.dist_context import DistContext
 from torch_geometric.distributed.partition import load_partition_info
 import argparse
 import os.path as osp
