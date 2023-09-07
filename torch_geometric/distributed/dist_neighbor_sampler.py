@@ -299,7 +299,6 @@ class DistNeighborSampler:
 
             sampled_nbrs_per_node_dict = remap_keys(sampled_nbrs_per_node_dict,
                                                     self._sampler.to_rel_type)
-
             row_dict, col_dict = torch.ops.pyg.hetero_relabel_neighborhood(
                 self._sampler.node_types, self._sampler.edge_types,
                 {input_type: seed}, node_dict.with_dupl,

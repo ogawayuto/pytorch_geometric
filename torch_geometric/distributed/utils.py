@@ -5,7 +5,7 @@ import torch
 from ordered_set import OrderedSet
 from torch import Tensor
 
-from torch_geometric.typing import Dict, NodeType
+from torch_geometric.typing import Dict, NodeType, Optional
 
 
 @dataclass
@@ -39,17 +39,16 @@ class BatchDict:
     3) output subgraph ids without duplicates.
     """
     def __init__(self, node_types, disjoint):
-        self.src: Dict[NodeType, Tensor] = {}
-        self.with_dupl: Dict[NodeType, Tensor] = {}
-        self.out: Dict[NodeType, Tensor] = {}
+        self.src: Dict[NodeType, Optional[Tensor]] = {}
+        self.with_dupl: Dict[NodeType, Optional[Tensor]] = {}
+        self.out: Dict[NodeType, Optional[Tensor]] = {}
         self.disjoint = disjoint
 
         if not self.disjoint:
             for ntype in node_types:
-                self.src.update({ntype: torch.empty(0, dtype=torch.int64)})
-                self.with_dupl.update(
-                    {ntype: torch.empty(0, dtype=torch.int64)})
-                self.out.update({ntype: torch.empty(0, dtype=torch.int64)})
+                self.src.update({ntype: None})
+                self.with_dupl.update({ntype: None})
+                self.out.update({ntype: None})
         else:
             self.src = None
             self.with_dupl = None

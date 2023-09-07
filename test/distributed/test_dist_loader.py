@@ -67,6 +67,7 @@ def dist_link_neighbor_loader_homo(tmp_path: str, world_size: int, rank: int,
                               world_size=world_size,
                               global_world_size=world_size,
                               group_name='dist-loader-test')
+    
     edge_label_index_train = (None,
                               torch.stack([
                                   data[1].get_edge_index((None, 'coo'))[0],
@@ -74,7 +75,7 @@ def dist_link_neighbor_loader_homo(tmp_path: str, world_size: int, rank: int,
                               ], dim=0))
 
     loader = DistLinkNeighborLoader(
-        data=data, edge_label_index=edge_label_index_train, num_neighbors=[-1],
+        data=data, edge_label_index=edge_label_index_train, num_neighbors=[10, 10],
         batch_size=10, num_workers=num_workers, master_addr=master_addr,
         master_port=master_port, current_ctx=current_ctx, rpc_worker_names={},
         concurrency=concurrency, device=device, drop_last=True,
@@ -110,7 +111,7 @@ def dist_neighbor_loader_homo(tmp_path: str, world_size: int, rank: int,
                               group_name='dist-loader-test')
 
     loader = DistNeighborLoader(
-        data, num_neighbors=[-1], batch_size=10, num_workers=num_workers,
+        data, num_neighbors=[10, 10], batch_size=10, num_workers=num_workers,
         input_nodes=input_nodes, master_addr=master_addr,
         master_port=master_port, current_ctx=current_ctx, rpc_worker_names={},
         concurrency=concurrency, device=device, drop_last=True,
@@ -147,7 +148,7 @@ def dist_neighbor_loader_hetero(tmp_path: str, world_size: int, rank: int,
                               group_name='dist-loader-test')
 
     loader = DistNeighborLoader(
-        data, num_neighbors=[-1], batch_size=10, num_workers=num_workers,
+        data, num_neighbors=[10, 10], batch_size=10, num_workers=num_workers,
         input_nodes=input_nodes, master_addr=master_addr,
         master_port=master_port, current_ctx=current_ctx, rpc_worker_names={},
         concurrency=concurrency, device=device, drop_last=True,
@@ -255,7 +256,7 @@ def test_dist_link_neighbor_loader_homo(tmp_path, num_workers, concurrency,
 @onlyLinux
 @pytest.mark.skipif(not WITH_METIS, reason='Not compiled with METIS support')
 @pytest.mark.parametrize('num_workers', [0, 2])
-@pytest.mark.parametrize('concurrency', [1, 10])
+@pytest.mark.parametrize('concurrency', [2, 10])
 @pytest.mark.parametrize('async_sampling', [True, False])
 def test_dist_neighbor_loader_hetero(
         tmp_path, num_workers, concurrency, async_sampling):
