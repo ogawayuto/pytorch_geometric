@@ -52,7 +52,6 @@ def test(model, test_loader, dataset_name):
   })['acc']
   return test_acc
 
-
 def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
                       num_training_procs_per_node: int, dataset_name: str,
                       root_dir: str,
@@ -140,7 +139,14 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     rpc_worker_names=rpc_worker_names,
     disjoint=False
   )
-
+  
+  @torch.no_grad()
+  def init_params():
+      # Initialize lazy parameters via forwarding a single batch to the model:
+      batch = next(iter(train_loader))
+      batch = batch.to(torch.device('cpu'), 'edge_index')
+      model(batch.x_dict, batch.edge_index_dict)
+      
   print(f"----------- 333 ------------- ")
   # Create distributed neighbor loader for testing.
   test_idx = ('paper', test_idx.split(test_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
@@ -164,20 +170,24 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
 
   # Define model and optimizer.
   #torch.cuda.set_device(current_device)
-  node_types = meta['node_types']
+  node_types = ['paper', 'institution', 'field_of_study']
   edge_types = [tuple(edge_type) for edge_type in meta['edge_types']]
+  print(edge_types)
   metadata=(node_types, edge_types)
   model = GraphSAGE(
-    in_channels=in_channels,
+    in_channels=(-1, -1),
     hidden_channels=256,
     num_layers=3,
     out_channels=out_channels,
   ).to(current_device)
 
   model=to_hetero(model, metadata)
+  
+  init_params()
+  
   model = DistributedDataParallel(model) #, device_ids=[current_device.index])
   optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-
+  
   print(f"----------- 444 ------------- ")
   # Train and test.
   f = open('dist_sage_sup.txt', 'a+')
