@@ -381,7 +381,6 @@ class NeighborSampler(BaseSampler):
         r""" Implements one-hop neighbor sampling for a :obj:`srcs`
         leveraging a :obj:`neighbor_sample` function from :obj:`pyg-lib`.
         """
-        print(edge_type)
         rel_type = '__'.join(edge_type) if self.is_hetero else None
 
         colptr = self.colptr if not self.is_hetero else self.colptr_dict[
