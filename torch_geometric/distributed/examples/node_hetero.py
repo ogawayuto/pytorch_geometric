@@ -165,7 +165,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   # Define model and optimizer.
   #torch.cuda.set_device(current_device)
   node_types = meta['node_types']
-  edge_types = meta['edge_types']
+  edge_types = [tuple(edge_type) for edge_type in meta['edge_types']]
   metadata=(node_types, edge_types)
   model = GraphSAGE(
     in_channels=in_channels,
