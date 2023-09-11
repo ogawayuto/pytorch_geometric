@@ -193,7 +193,7 @@ def run_training_proc(
             if i == len(train_loader)-1:
                 print(" ---- dist.barrier ----")
                 torch.distributed.barrier()
-            batch_time = batch_time_start - time.time()
+            batch_time = time.time() - batch_time_start
             print(f"batch time: {batch_time}")
         print(" ---- dist.barrier ----")
         end = time.time()
