@@ -525,7 +525,7 @@ class DistNeighborSampler:
                     futs.append(
                         rpc_async(
                             to_worker, self.rpc_sample_callee_id,
-                            args=(p_srcs, one_hop_num, p_seed_time, p_batch,
+                            args=(p_srcs, one_hop_num, p_seed_time, self.csc, p_batch,
                                   etype)))
 
         # All src nodes are local
