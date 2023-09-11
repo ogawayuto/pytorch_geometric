@@ -118,7 +118,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   train_idx = ('paper', train_idx.split(train_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
   
   num_workers=2
-  concurrency=6
+  concurrency=4
   train_loader = DistNeighborLoader(
     data=partition_data,
     num_neighbors=[3, 2, 1],
@@ -130,7 +130,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     concurrency=concurrency,
     master_addr=master_addr,
     master_port=train_loader_master_port,
-    async_sampling = True,
+    async_sampling = False,
     filter_per_worker = False,
     current_ctx=current_ctx,
     rpc_worker_names=rpc_worker_names,
@@ -151,11 +151,11 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     concurrency=concurrency,
     master_addr=master_addr,
     master_port=test_loader_master_port,
-    async_sampling = True,
+    async_sampling = False,
     filter_per_worker = False,
     current_ctx=current_ctx,
     rpc_worker_names=rpc_worker_names,
-    disjoint=True
+    disjoint=False
   )
 
   # Define model and optimizer.
@@ -209,7 +209,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
 
     # Test accuracy.
     #if epoch == 0 or epoch > (epochs // 2):
-    if epoch % 1 == 0: # or epoch > (epochs // 2):
+    if epoch % 5 == 0: # or epoch > (epochs // 2):
       test_acc = test(model, test_loader, dataset_name)
       f.write(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
       print(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
