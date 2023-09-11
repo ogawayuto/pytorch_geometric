@@ -16,6 +16,7 @@ from .rpc import RPCCallBase, RPCRouter, rpc_async, rpc_register
 
 class RPCCallFeatureLookup(RPCCallBase):
     r""" A wrapper for rpc remote call to get the feature data from remote"""
+
     def __init__(self, dist_feature):
         super().__init__()
         self.dist_feature = dist_feature
@@ -30,6 +31,7 @@ class RPCCallFeatureLookup(RPCCallBase):
 @dataclass
 class LocalTensorAttr(TensorAttr):
     r"""Tensor attribute for storing features without :obj:`index`."""
+
     def __init__(
         self,
         group_name: Optional[Union[NodeType, EdgeType]] = _FieldStatus.UNSET,
@@ -42,6 +44,7 @@ class LocalTensorAttr(TensorAttr):
 class LocalFeatureStore(FeatureStore):
     r"""This class implements the :class:`torch_geometric.data.FeatureStore`
     interface to act as a local feature store for distributed training."""
+
     def __init__(self):
         super().__init__(tensor_attr_cls=LocalTensorAttr)
 
@@ -57,9 +60,9 @@ class LocalFeatureStore(FeatureStore):
         self.num_partitions: int = 1
         self.partition_idx: int = 0
         self.node_feat_pb: Union[Tensor, Dict[NodeType, Tensor], Dict[EdgeType,
-                                                                    Tensor]]
-        self.edge_feat_pb: Optional[Union[Tensor, Dict[NodeType, Tensor], Dict[EdgeType,
-                                                            Tensor]]]
+                                                                      Tensor]]
+        self.edge_feat_pb: Optional[Union[Tensor,
+                                          Dict[NodeType, Tensor], Dict[EdgeType, Tensor]]]
         self.local_only: bool = False
         self.rpc_router: Optional[RPCRouter] = None
         self.meta: Optional[Dict] = None
@@ -129,7 +132,7 @@ class LocalFeatureStore(FeatureStore):
         #     if max(attr.index) > self._global_id_to_index[attr.group_name].size(0):
         #         pass
         attr.index = self._global_id_to_index[attr.group_name][attr.index]
-    #     print("\nattr_global_id:", attr.index)       
+    #     print("\nattr_global_id:", attr.index)
     #    # TODO: Debug, I think this should never return -1
         return self.get_tensor(attr)
 
@@ -152,17 +155,17 @@ class LocalFeatureStore(FeatureStore):
         else:
             self.rpc_call_id = None
         return True
-    
+
     def has_edge_attr(self) -> bool:
         edge_keys = [key for key in self._feat.keys() if 'edge_attr' in key]
         for k in edge_keys:
             try:
-                self.get_tensor(k[0],'edge_attr')
+                self.get_tensor(k[0], 'edge_attr')
             except KeyError:
                 return False
             else:
                 return True
-                
+
     # lookup the distributed features
 
     def lookup_features(
@@ -172,11 +175,11 @@ class LocalFeatureStore(FeatureStore):
         input_type: Optional[Union[NodeType, EdgeType]] = None,
     ) -> torch.futures.Future:
         r""" Lookup the local/remote features based on node/edge ids """
-        pb = self.node_feat_pb if is_node_feat else self.edge_feat_pb 
+        pb = self.node_feat_pb if is_node_feat else self.edge_feat_pb
         remote_fut = self._remote_lookup_features(index, pb, is_node_feat,
                                                   input_type)
         local_feature = self._local_lookup_features(index, pb, is_node_feat,
-                                                  input_type)
+                                                    input_type)
         res_fut = torch.futures.Future()
 
         def when_finish(*_):

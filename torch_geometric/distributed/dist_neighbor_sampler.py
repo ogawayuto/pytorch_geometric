@@ -563,7 +563,7 @@ class DistNeighborSampler:
                         fut = self.dist_feature.lookup_features(
                             is_node_feat=True, index=output.node[ntype],
                             input_type=ntype)
-                        print('node fut')
+                        # print('node fut')
                         print({max(output.node[ntype])},
                               {self.dist_feature.node_feat_pb.size()})
                         nfeat = await wrap_torch_future(fut)
@@ -578,7 +578,7 @@ class DistNeighborSampler:
                         fut = self.dist_feature.lookup_features(
                             is_node_feat=False, index=output.edge[etype],
                             input_type=etype)
-                        print('edge fut')
+                        # print('edge fut')
                         print(
                             f'{max(output.edge[etype])}, {self.dist_feature.edge_feat_pb.size()}'
                         )
