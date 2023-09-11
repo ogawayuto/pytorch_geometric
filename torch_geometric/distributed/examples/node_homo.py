@@ -31,10 +31,11 @@ def test(model, test_loader, dataset_name):
     xs = []
     y_true = []
     for i, batch in enumerate(test_loader):
+        batch_time_start = time.time()
         x = model(batch.x, batch.edge_index)[:batch.batch_size]
         xs.append(x.cpu())
         y_true.append(batch.y[:batch.batch_size].cpu())
-        print(f"---- test():  i={i}, batch={batch} ----")
+        print(f"---- test():  i={i}, batch_time={time.time() - batch_time_start} ----")
         del batch
         if i == len(test_loader)-1:
             print(" ---- dist.barrier ----")
@@ -183,7 +184,6 @@ def run_training_proc(
 
         for i, batch in enumerate(train_loader):
             batch_time_start = time.time()
-            print(f"-------- x2_worker: batch={batch}, i={i} --------- ")
             optimizer.zero_grad()
             out = model(batch.x, batch.edge_index)[
                 :batch.batch_size].log_softmax(dim=-1)
@@ -193,8 +193,7 @@ def run_training_proc(
             if i == len(train_loader)-1:
                 print(" ---- dist.barrier ----")
                 torch.distributed.barrier()
-            batch_time = time.time() - batch_time_start
-            print(f"batch time: {batch_time}")
+            print(f"-------- x2_worker: i={i} batch_time={time.time() - batch_time_start} --------- ")
         print(" ---- dist.barrier ----")
         end = time.time()
         f.write(
