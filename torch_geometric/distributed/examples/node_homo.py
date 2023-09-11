@@ -31,8 +31,6 @@ def test(model, test_loader, dataset_name):
     xs = []
     y_true = []
     for i, batch in enumerate(test_loader):
-        if i == 0:
-            device = batch.x.device
         x = model(batch.x, batch.edge_index)[:batch.batch_size]
         xs.append(x.cpu())
         y_true.append(batch.y[:batch.batch_size].cpu())
@@ -41,8 +39,8 @@ def test(model, test_loader, dataset_name):
         if i == len(test_loader)-1:
             print(" ---- dist.barrier ----")
             torch.distributed.barrier()
-    xs = [t.to(device) for t in xs]
-    y_true = [t.to(device) for t in y_true]
+    xs = [t.to(torch.device('cpu')) for t in xs]
+    y_true = [t.to(torch.device('cpu')) for t in y_true]
     y_pred = torch.cat(xs, dim=0).argmax(dim=-1, keepdim=True)
     y_true = torch.cat(y_true, dim=0).unsqueeze(-1)
     test_acc = evaluator.eval({
@@ -184,6 +182,7 @@ def run_training_proc(
         print(f"TEST LOADER CHANNEL: {test_loader.channel.empty()}")
 
         for i, batch in enumerate(train_loader):
+            batch_time_start = time.time()
             print(f"-------- x2_worker: batch={batch}, i={i} --------- ")
             optimizer.zero_grad()
             out = model(batch.x, batch.edge_index)[
@@ -194,7 +193,8 @@ def run_training_proc(
             if i == len(train_loader)-1:
                 print(" ---- dist.barrier ----")
                 torch.distributed.barrier()
-
+            batch_time = batch_time_start - time.time()
+            print(f"batch time: {batch_time}")
         print(" ---- dist.barrier ----")
         end = time.time()
         f.write(

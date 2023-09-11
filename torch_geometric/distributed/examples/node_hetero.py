@@ -120,8 +120,9 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   # Create distributed neighbor loader for training
   train_idx = ('paper', train_idx.split(train_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
   
-  num_workers=2
-  concurrency=4
+  num_workers=0
+  concurrency=1
+  
   train_loader = DistNeighborLoader(
     data=partition_data,
     num_neighbors=[3, 2, 1],
@@ -188,7 +189,6 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     model.train()
     start = time.time()
     for i, batch in enumerate(train_loader):
-      pass
       print(f"-------- x2_worker: batch={batch}, cnt={i} --------- ")
       optimizer.zero_grad()
       out = model(batch.x_dict, batch.edge_index_dict)
