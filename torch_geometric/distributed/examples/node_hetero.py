@@ -33,8 +33,8 @@ class HeteroGNN(torch.nn.Module):
         self.convs = torch.nn.ModuleList()
         for _ in range(num_layers):
             conv = HeteroConv({
-                ('paper', 'cites', 'paper'): GCNConv(-1, hidden_channels, add_self_loops=True),
-                ('author', 'writes', 'paper'): SAGEConv((-1, -1), hidden_channels, add_self_loops=True),
+                ('paper', 'cites', 'paper'): GCNConv(-1, hidden_channels),
+                ('author', 'writes', 'paper'): SAGEConv((-1, -1), hidden_channels),
                 # ('paper', 'has_topic', 'field_of_study'): SAGEConv((-1, -1), hidden_channels, add_self_loops=True),
             }, aggr='sum')
             self.convs.append(conv)
@@ -206,7 +206,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   
   # model=to_hetero(model, metadata)
   model = HeteroGNN(hidden_channels=64, out_channels=349,
-            num_layers=1)
+            num_layers=3)
 
   init_params()
 
