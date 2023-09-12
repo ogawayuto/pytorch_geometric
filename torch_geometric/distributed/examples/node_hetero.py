@@ -205,11 +205,11 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   # ).to(current_device)
   
   # model=to_hetero(model, metadata)
-  # init_params()
   model = HeteroGNN(hidden_channels=64, out_channels=349,
             num_layers=1)
 
-  
+  init_params()
+
   model = DistributedDataParallel(model) #, device_ids=[current_device.index])
   optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
   
