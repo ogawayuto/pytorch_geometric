@@ -127,6 +127,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   # Create distributed neighbor loader for training
   v0_id=partition_data[0].get_global_id('v0')
   train_idx = ('v0', partition_data[0].get_global_id('v0').split(v0_id.size(0) // 2)[node_rank])
+  print(train_idx, train_idx[1].size(0))
   
   
   # Initialize graphlearn_torch distributed worker group context.
