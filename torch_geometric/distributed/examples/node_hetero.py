@@ -263,7 +263,7 @@ if __name__ == '__main__':
   parser.add_argument(
     "--dataset",
     type=str,
-    default='ogbn-mag',
+    default='ogbn-mags',
     help="The name of ogbn dataset.",
   )
   parser.add_argument(
