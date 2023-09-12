@@ -23,7 +23,7 @@ from torch_geometric.distributed import (
     LocalGraphStore,
     DistNeighborLoader
     )
-from torch_geometric.nn import HeteroConv, GCNConv, SAGEConv, GATConv, Linear
+from torch_geometric.nn import HeteroConv, GCNConv, SAGEConv, Linear
 
 
 class HeteroGNN(torch.nn.Module):
@@ -33,9 +33,8 @@ class HeteroGNN(torch.nn.Module):
         self.convs = torch.nn.ModuleList()
         for _ in range(num_layers):
             conv = HeteroConv({
-                ('paper', 'cites', 'paper'): GCNConv(-1, hidden_channels, add_self_loops=False),
-                ('author', 'writes', 'paper'): SAGEConv((-1, -1), hidden_channels, add_self_loops=False),
-                ('paper', 'rev_writes', 'author'): GATConv((-1, -1), hidden_channels, add_self_loops=False),
+                ('paper', 'cites', 'paper'): SAGEConv(-1, hidden_channels, add_self_loops=False),
+                ('author', 'writes', 'paper'): SAGEConv((-1, -1), hidden_channels, add_self_loops=False)
             }, aggr='sum')
             self.convs.append(conv)
 
