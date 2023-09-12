@@ -35,7 +35,7 @@ class HeteroGNN(torch.nn.Module):
             conv = HeteroConv({
                 ('paper', 'cites', 'paper'): GCNConv(-1, hidden_channels, add_self_loops=True),
                 ('author', 'writes', 'paper'): SAGEConv((-1, -1), hidden_channels, add_self_loops=True),
-                ('paper', 'has_topic', 'field_of_study'): SAGEConv((-1, -1), hidden_channels, add_self_loops=True),
+                # ('paper', 'has_topic', 'field_of_study'): SAGEConv((-1, -1), hidden_channels, add_self_loops=True),
             }, aggr='sum')
             self.convs.append(conv)
 
