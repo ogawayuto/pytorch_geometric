@@ -45,7 +45,7 @@ class HeteroGNN(torch.nn.Module):
         for conv in self.convs:
             x_dict = conv(x_dict, edge_index_dict)
             x_dict = {key: x.relu() for key, x in x_dict.items()}
-        return self.lin(x_dict)
+        return self.lin(x_dict['paper'])
 
 print("\n\n\n\n\n\n")
 @torch.no_grad()
@@ -147,7 +147,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   
   train_loader = DistNeighborLoader(
     data=partition_data,
-    num_neighbors=[5],
+    num_neighbors=[10, 10],
     input_nodes=train_idx,
     batch_size=batch_size,
     shuffle=True,
