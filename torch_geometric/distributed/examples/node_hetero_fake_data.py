@@ -35,7 +35,7 @@ class HeteroGNN(torch.nn.Module):
             conv = HeteroConv({
                 ('v0', 'e0', 'v0'): GCNConv(-1, hidden_channels),
                 ('v0', 'e0', 'v1'): SAGEConv((-1, -1), hidden_channels),
-                ('v1', 'e0', 'v1'): GATConv((-1, -1), hidden_channels, add_self_loops=False),
+                ('v1', 'e0', 'v0'): GATConv((-1, -1), hidden_channels, add_self_loops=False),
             }, aggr='sum')
             self.convs.append(conv)
 
