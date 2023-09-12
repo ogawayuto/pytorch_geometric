@@ -156,17 +156,18 @@ def run_training_proc(
         async_sampling=True,
         filter_per_worker=False,
         current_ctx=current_ctx,
-        rpc_worker_names=rpc_worker_names
+        rpc_worker_names=rpc_worker_names,
+        persistent_workers=True,
     )
 
     # Define model and optimizer.
     # torch.cuda.set_device(current_device)
 
     model = GraphSAGE(
-        in_channels=in_channels,
+        in_channels=100,
         hidden_channels=256,
         num_layers=3,
-        out_channels=out_channels,
+        out_channels=47,
     ).to(current_device)
     model = DistributedDataParallel(model)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
