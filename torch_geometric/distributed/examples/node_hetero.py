@@ -33,8 +33,9 @@ class HeteroGNN(torch.nn.Module):
         self.convs = torch.nn.ModuleList()
         for _ in range(num_layers):
             conv = HeteroConv({
-                ('paper', 'cites', 'paper'): SAGEConv(-1, hidden_channels, add_self_loops=False),
-                ('author', 'writes', 'paper'): SAGEConv((-1, -1), hidden_channels, add_self_loops=False)
+                ('paper', 'cites', 'paper'): GCNConv(-1, hidden_channels, add_self_loops=True),
+                ('author', 'writes', 'paper'): SAGEConv((-1, -1), hidden_channels, add_self_loops=True),
+                ('paper', 'has_topic', 'field_of_study'): SAGEConv((-1, -1), hidden_channels, add_self_loops=True),
             }, aggr='sum')
             self.convs.append(conv)
 
@@ -49,7 +50,7 @@ class HeteroGNN(torch.nn.Module):
 print("\n\n\n\n\n\n")
 @torch.no_grad()
 def test(model, test_loader, dataset_name):
-  evaluator = Evaluator(name=dataset_name)
+  evaluator = Evaluator(name='ogbn-mag')
   model.eval()
   xs = []
   y_true = []
@@ -262,7 +263,7 @@ if __name__ == '__main__':
   parser.add_argument(
     "--dataset",
     type=str,
-    default='ogbn-mags',
+    default='ogbn-mag',
     help="The name of ogbn dataset.",
   )
   parser.add_argument(
