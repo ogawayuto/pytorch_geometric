@@ -174,24 +174,24 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
       
   print(f"----------- 333 ------------- ")
   # Create distributed neighbor loader for testing.
-  test_idx = ('paper', test_idx.split(test_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
-  test_loader = DistNeighborLoader(
-    data=partition_data,
-    num_neighbors=[3, 2, 1],
-    input_nodes=test_idx,
-    batch_size=batch_size,
-    shuffle=True,
-    device=torch.device('cpu'),
-    num_workers=num_workers,
-    concurrency=concurrency,
-    master_addr=master_addr,
-    master_port=test_loader_master_port,
-    async_sampling = False,
-    filter_per_worker = False,
-    current_ctx=current_ctx,
-    rpc_worker_names=rpc_worker_names,
-    disjoint=False
-  )
+  # test_idx = ('paper', test_idx.split(test_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
+  # test_loader = DistNeighborLoader(
+  #   data=partition_data,
+  #   num_neighbors=[3, 2, 1],
+  #   input_nodes=test_idx,
+  #   batch_size=batch_size,
+  #   shuffle=True,
+  #   device=torch.device('cpu'),
+  #   num_workers=num_workers,
+  #   concurrency=concurrency,
+  #   master_addr=master_addr,
+  #   master_port=test_loader_master_port,
+  #   async_sampling = False,
+  #   filter_per_worker = False,
+  #   current_ctx=current_ctx,
+  #   rpc_worker_names=rpc_worker_names,
+  #   disjoint=False
+  # )
 
   # Define model and optimizer.
   #torch.cuda.set_device(current_device)
