@@ -85,14 +85,14 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
                       training_pg_master_port: int, train_loader_master_port: int,
                       test_loader_master_port: int):
   
-  graph = LocalGraphStore.from_partition(osp.join(root_dir, f'{dataset_name}-partitions'), node_rank)
+  graph = LocalGraphStore.from_partition(root_dir, node_rank)
   print(f"-------- graph={graph} ")
   edge_attrs = graph.get_all_edge_attrs()
   print(f"------- edge_attrs ={edge_attrs}")
-  feature = LocalFeatureStore.from_partition(osp.join(root_dir, f'{dataset_name}-partitions'), node_rank)
+  feature = LocalFeatureStore.from_partition(root_dir, node_rank)
   (
     meta, num_partitions, partition_idx, node_pb, edge_pb
-  ) = load_partition_info(osp.join(root_dir, f'{dataset_name}-partitions'), node_rank)
+  ) = load_partition_info(root_dir, node_rank)
   print(f"-------- meta={meta}, partition_idx={partition_idx}, node_pb={node_pb} ")
 
   node_pb = torch.cat(list(node_pb.values()))
@@ -112,15 +112,15 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   feature.edge_feat_pb = edge_pb
   feature.meta = meta
   
-  if node_label_file is not None:
-      if isinstance(node_label_file, dict):
-          whole_node_labels = {}
-          for ntype, file in node_label_file.items():
-              whole_node_labels[ntype] = torch.load(file)
-      else:
-          whole_node_labels = torch.load(node_label_file)
-  node_labels = whole_node_labels
-  graph.labels = node_labels
+  # if node_label_file is not None:
+  #     if isinstance(node_label_file, dict):
+  #         whole_node_labels = {}
+  #         for ntype, file in node_label_file.items():
+  #             whole_node_labels[ntype] = torch.load(file)
+  #     else:
+  #         whole_node_labels = torch.load(node_label_file)
+  # node_labels = whole_node_labels
+  # graph.labels = node_labels
 
   partition_data = (feature, graph)
 
@@ -383,7 +383,7 @@ if __name__ == '__main__':
   torch.multiprocessing.spawn(
     run_training_proc,
     args=(args.num_nodes, args.node_rank, args.num_training_procs,
-          args.dataset, root_dir, rgs.in_channel, args.out_channel, args.epochs,
+          args.dataset, root_dir, None, args.in_channel, args.out_channel, None, None, args.epochs,
           args.batch_size, args.master_addr, args.training_pg_master_port,
           args.train_loader_master_port, args.test_loader_master_port),
     nprocs=args.num_training_procs,
