@@ -124,6 +124,11 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
 
   partition_data = (feature, graph)
 
+  # Create distributed neighbor loader for training
+  v0_id=partition_data[0].get_global_id('v0')
+  train_idx = ('v0', partition_data[0].get_global_id('v0').split(v0_id.size(0) // 2)[node_rank])
+  
+  
   # Initialize graphlearn_torch distributed worker group context.
   current_ctx = DistContext(world_size=num_nodes*num_training_procs_per_node,
       rank=node_rank*num_training_procs_per_node+local_proc_rank,
@@ -141,9 +146,6 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     init_method='tcp://{}:{}'.format(master_addr, training_pg_master_port)
   )
 
-  # Create distributed neighbor loader for training
-  train_idx = ('v0', partition_data[0].get_global_id('v0').split(train_idx.size(0) // 2)[local_proc_rank])
-  
   num_workers=0
   concurrency=1
   
@@ -153,7 +155,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     input_nodes=train_idx,
     batch_size=batch_size,
     shuffle=True,
-    device=torch.device('cpu'),
+    device=current_device,
     num_workers=num_workers,
     concurrency=concurrency,
     master_addr=master_addr,
@@ -195,9 +197,9 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
 
   # Define model and optimizer.
   #torch.cuda.set_device(current_device)
-  node_types = ['paper']
-  edge_types = [('paper', 'cites', 'paper')]
-  print(edge_types)
+  # node_types = ['paper']
+  # edge_types = [('paper', 'cites', 'paper')]
+  # print(edge_types)
   # metadata=(node_types, edge_types)
   # model = GraphSAGE(
   #   in_channels=128,
@@ -231,7 +233,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
       loss = F.nll_loss(out, target)
       loss.backward()
       optimizer.step()
-      if i == len(test_loader)-1:
+      if i == len(train_loader)-1:
           print(" ---- dist.barrier ----")
           torch.distributed.barrier()
 

@@ -229,7 +229,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
       loss = F.nll_loss(out, target)
       loss.backward()
       optimizer.step()
-      if i == len(test_loader)-1:
+      if i == len(train_loader)-1:
           print(" ---- dist.barrier ----")
           torch.distributed.barrier()
 
