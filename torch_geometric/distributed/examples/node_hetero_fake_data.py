@@ -142,7 +142,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   )
 
   # Create distributed neighbor loader for training
-  train_idx = ('v0', train_idx.split(train_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
+  train_idx = ('v0', partition_data[0].get_global_id('v0').split(train_idx.size(0) // 2)[local_proc_rank])
   
   num_workers=0
   concurrency=1
