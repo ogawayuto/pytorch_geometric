@@ -45,7 +45,7 @@ class HeteroGNN(torch.nn.Module):
         for conv in self.convs:
             x_dict = conv(x_dict, edge_index_dict)
             x_dict = {key: x.relu() for key, x in x_dict.items()}
-        return self.lin(x_dict['author'])
+        return self.lin(x_dict['paper'])
 
 print("\n\n\n\n\n\n")
 @torch.no_grad()
