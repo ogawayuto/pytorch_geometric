@@ -23,6 +23,29 @@ from torch_geometric.distributed import (
     LocalGraphStore,
     DistNeighborLoader
     )
+from torch_geometric.nn import HeteroConv, GCNConv, SAGEConv, GATConv, Linear
+
+
+class HeteroGNN(torch.nn.Module):
+    def __init__(self, hidden_channels, out_channels, num_layers):
+        super().__init__()
+
+        self.convs = torch.nn.ModuleList()
+        for _ in range(num_layers):
+            conv = HeteroConv({
+                ('paper', 'cites', 'paper'): GCNConv(-1, hidden_channels),
+                ('author', 'writes', 'paper'): SAGEConv((-1, -1), hidden_channels),
+                ('paper', 'rev_writes', 'author'): GATConv((-1, -1), hidden_channels),
+            }, aggr='sum')
+            self.convs.append(conv)
+
+        self.lin = Linear(hidden_channels, out_channels)
+
+    def forward(self, x_dict, edge_index_dict):
+        for conv in self.convs:
+            x_dict = conv(x_dict, edge_index_dict)
+            x_dict = {key: x.relu() for key, x in x_dict.items()}
+        return self.lin(x_dict['author'])
 
 print("\n\n\n\n\n\n")
 @torch.no_grad()
@@ -124,7 +147,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   
   train_loader = DistNeighborLoader(
     data=partition_data,
-    num_neighbors=[3, 2, 1],
+    num_neighbors=[5],
     input_nodes=train_idx,
     batch_size=batch_size,
     shuffle=True,
@@ -173,17 +196,19 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   node_types = ['paper']
   edge_types = [('paper', 'cites', 'paper')]
   print(edge_types)
-  metadata=(node_types, edge_types)
-  model = GraphSAGE(
-    in_channels=128,
-    hidden_channels=256,
-    num_layers=3,
-    out_channels=out_channels,
-  ).to(current_device)
-
-  model=to_hetero(model, metadata)
+  # metadata=(node_types, edge_types)
+  # model = GraphSAGE(
+  #   in_channels=128,
+  #   hidden_channels=256,
+  #   num_layers=1,
+  #   out_channels=349,
+  # ).to(current_device)
   
-  init_params()
+  # model=to_hetero(model, metadata)
+  # init_params()
+  model = HeteroGNN(hidden_channels=64, out_channels=349,
+            num_layers=1)
+
   
   model = DistributedDataParallel(model) #, device_ids=[current_device.index])
   optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
