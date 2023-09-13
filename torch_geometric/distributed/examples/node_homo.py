@@ -122,7 +122,6 @@ def run_training_proc(
         world_size=current_ctx.world_size,
         init_method='tcp://{}:{}'.format(master_addr, training_pg_master_port)
     )
-    
     # Create loaders
     train_loader = pyg_dist.DistNeighborLoader(
         data=partition_data,
@@ -146,7 +145,7 @@ def run_training_proc(
         data=partition_data,
         # data=dataset,
         num_neighbors=[-1],
-        input_nodes=None,
+        input_nodes=test_idx,
         batch_size=4096,
         shuffle=True,
         device=torch.device('cpu'),
