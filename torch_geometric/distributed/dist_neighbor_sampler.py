@@ -444,13 +444,13 @@ class DistNeighborSampler:
         Returns :obj:`SamplerOutput` containing all merged outputs.
         """
         sampled_nodes_with_dupl = [
-            o.node if o is not None else None for o in outputs
+            o.node if o is not None else torch.empty() for o in outputs
         ]
-        edge_ids = [o.edge if o is not None else None for o in outputs]
-        batch = [o.batch if o is not None else None
+        edge_ids = [o.edge if o is not None else torch.empty() for o in outputs]
+        batch = [o.batch if o is not None else torch.empty()
                  for o in outputs] if self.disjoint else None
         cumm_sampled_nbrs_per_node = [
-            o.metadata if o is not None else None for o in outputs
+            o.metadata if o is not None else [] for o in outputs
         ]
 
         partition_ids = partition_ids.tolist()
