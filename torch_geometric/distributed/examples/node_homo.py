@@ -134,7 +134,7 @@ def run_training_proc(
         concurrency=concurrency,
         master_addr=master_addr,
         master_port=train_loader_master_port,
-        async_sampling=True,
+        async_sampling=False,
         filter_per_worker=False,
         current_ctx=current_ctx,
         rpc_worker_names=rpc_worker_names,
@@ -147,13 +147,13 @@ def run_training_proc(
         num_neighbors=[-1],
         input_nodes=test_idx,
         batch_size=4096,
-        shuffle=True,
+        shuffle=False,
         device=torch.device('cpu'),
         num_workers=num_workers,
         concurrency=concurrency,
         master_addr=master_addr,
         master_port=test_loader_master_port,
-        async_sampling=True,
+        async_sampling=False,
         filter_per_worker=False,
         current_ctx=current_ctx,
         rpc_worker_names=rpc_worker_names,
@@ -209,9 +209,9 @@ def run_training_proc(
         if epoch % 5 == 0:  # or epoch > (epochs // 2):
             test_acc = test(model, test_loader, dataset_name)
             f.write(
-                f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
+                f'-- [Trainer {current_ctx.rank}] Epoch: {epoch:03d} Test Accuracy: {test_acc:.4f}\n')
             print(
-                f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
+                f'-- [Trainer {current_ctx.rank}] Epoch: {epoch:03d} Test Accuracy: {test_acc:.4f}\n')
 
             print("\n\n\n\n\n\n")
             print("********************************************************************************************** ")
