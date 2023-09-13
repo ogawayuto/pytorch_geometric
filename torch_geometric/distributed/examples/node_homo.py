@@ -105,6 +105,16 @@ def run_training_proc(
     current_device = torch.device('cpu')
     rpc_worker_names = {}
 
+    # Create distributed neighbor loader for training
+    train_idx = train_idx.split(train_idx.size(
+        0) // num_training_procs_per_node)[local_proc_rank]
+    
+    # Create distributed neighbor loader for testing.
+    test_idx = test_idx.split(test_idx.size(
+        0) // num_training_procs_per_node)[local_proc_rank]
+    num_workers = 12
+    concurrency = 24
+    
     # Initialize training process group of PyTorch.
     torch.distributed.init_process_group(
         backend='gloo',
@@ -113,18 +123,11 @@ def run_training_proc(
         init_method='tcp://{}:{}'.format(master_addr, training_pg_master_port)
     )
 
-    # Create distributed neighbor loader for training
-    train_idx = train_idx.split(train_idx.size(
-        0) // num_training_procs_per_node)[local_proc_rank]
-
-    num_workers = 2
-    concurrency = 2
-    
     train_loader = pyg_dist.DistNeighborLoader(
         data=partition_data,
         num_neighbors=[15, 10, 5],
         input_nodes=train_idx,
-        batch_size=batch_size,
+        batch_size=1024,
         shuffle=True,
         device=torch.device('cpu'),
         num_workers=num_workers,
@@ -134,7 +137,8 @@ def run_training_proc(
         async_sampling=True,
         filter_per_worker=False,
         current_ctx=current_ctx,
-        rpc_worker_names=rpc_worker_names
+        rpc_worker_names=rpc_worker_names,
+        persistent_workers = True,
     )
 
     print(f"----------- 333 ------------- ")
@@ -144,9 +148,9 @@ def run_training_proc(
     test_loader = pyg_dist.DistNeighborLoader(
         data=partition_data,
         # data=dataset,
-        num_neighbors=[15, 10, 5],
-        input_nodes=test_idx,
-        batch_size=batch_size,
+        num_neighbors=[-1],
+        input_nodes=None,
+        batch_size=4096,
         shuffle=True,
         device=torch.device('cpu'),
         num_workers=num_workers,
