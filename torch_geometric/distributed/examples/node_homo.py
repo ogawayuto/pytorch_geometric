@@ -180,8 +180,6 @@ def run_training_proc(
         start = time.time()
         print(f"TRAIN LOADER CHANNEL: {train_loader.channel}")
         print(f"TEST LOADER CHANNEL: {test_loader.channel}")
-        print(f"TRAIN LOADER CHANNEL EMPTY: {train_loader.channel.empty()}")
-        print(f"TEST LOADER CHANNEL: {test_loader.channel.empty()}")
 
         for i, batch in enumerate(train_loader):
             batch_time_start = time.time()
