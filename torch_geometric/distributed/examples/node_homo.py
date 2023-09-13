@@ -112,8 +112,8 @@ def run_training_proc(
     # Create distributed neighbor loader for testing.
     test_idx = test_idx.split(test_idx.size(
         0) // num_training_procs_per_node)[local_proc_rank]
-    num_workers = 12
-    concurrency = 24
+    num_workers = 6
+    concurrency = 12
     
     # Initialize training process group of PyTorch.
     torch.distributed.init_process_group(
@@ -198,7 +198,7 @@ def run_training_proc(
             if i == len(train_loader)-1:
                 print(" ---- dist.barrier ----")
                 torch.distributed.barrier()
-            print(f"-------- x2_worker: i={i} batch_time={time.time() - batch_time_start} --------- ")
+            print(f"-------- dist_train_2nodes: i={i} batch_time={time.time() - batch_time_start} --------- ")
         print(" ---- dist.barrier ----")
         end = time.time()
         f.write(
