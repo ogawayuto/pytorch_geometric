@@ -149,6 +149,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
 
   num_workers=0
   concurrency=1
+  batch_size=10
   
   train_loader = DistNeighborLoader(
     data=partition_data,
