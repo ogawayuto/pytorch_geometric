@@ -358,6 +358,9 @@ class DistNeighborSampler:
 
                 node_with_dupl.append(out.node)
                 edge.append(out.edge)
+                
+                if out.node.numel() == 0:
+                    pass
 
                 if self.disjoint:
                     src_batch = Tensor(list(zip(*node_wo_dupl))[0]).type(
@@ -367,7 +370,7 @@ class DistNeighborSampler:
                 num_sampled_nodes.append(len(src))
                 num_sampled_edges.append(len(out.node))
                 sampled_nbrs_per_node += out.metadata
-
+            
             row, col = torch.ops.pyg.relabel_neighborhood(
                 seed, torch.cat(node_with_dupl), sampled_nbrs_per_node,
                 self._sampler.num_nodes,
