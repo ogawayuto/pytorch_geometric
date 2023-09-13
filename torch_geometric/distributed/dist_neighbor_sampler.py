@@ -323,15 +323,13 @@ class DistNeighborSampler:
                 num_sampled_nodes=num_sampled_nodes_dict,
                 num_sampled_edges=num_sampled_edges_dict, metadata=metadata)
         else:
-
             src = seed
-
             node = OrderedSet(
                 src.tolist()) if not self.disjoint else OrderedSet(
                     tuple(zip(src_batch.tolist(), src.tolist())))
-            node_with_dupl = []
-            batch_with_dupl = []
-            edge = []
+            node_with_dupl = [torch.empty(0, dtype=torch.int64)]
+            batch_with_dupl = [torch.empty(0, dtype=torch.int64)]
+            edge = [torch.empty(0, dtype=torch.int64)]
 
             sampled_nbrs_per_node = []
             num_sampled_nodes = [seed.numel()]
@@ -341,15 +339,16 @@ class DistNeighborSampler:
             for one_hop_num in self.num_neighbors:
                 out = await self.sample_one_hop(src, one_hop_num, seed_time,
                                                 src_batch)
-
+                if out.node.numel() == 0:
+                    # no neighbors were sampled
+                    break
+            
                 # remove duplicates
                 # TODO: find better method to remove duplicates
                 node_wo_dupl = OrderedSet(
                     (out.node).tolist()) if not self.disjoint else OrderedSet(
                         zip((out.batch).tolist(), (out.node).tolist()))
-                if len(node_wo_dupl) == 0:
-                    # no neighbors were sampled
-                    break
+
                 duplicates = node.intersection(node_wo_dupl)
                 node_wo_dupl.difference_update(duplicates)
                 src = Tensor(node_wo_dupl if not self.disjoint else list(
@@ -359,8 +358,7 @@ class DistNeighborSampler:
                 node_with_dupl.append(out.node)
                 edge.append(out.edge)
                 
-                if out.node.numel() == 0:
-                    pass
+
 
                 if self.disjoint:
                     src_batch = Tensor(list(zip(*node_wo_dupl))[0]).type(
