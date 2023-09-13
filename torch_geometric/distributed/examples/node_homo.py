@@ -122,7 +122,8 @@ def run_training_proc(
         world_size=current_ctx.world_size,
         init_method='tcp://{}:{}'.format(master_addr, training_pg_master_port)
     )
-
+    
+    # Create loaders
     train_loader = pyg_dist.DistNeighborLoader(
         data=partition_data,
         num_neighbors=[15, 10, 5],
@@ -141,10 +142,6 @@ def run_training_proc(
         persistent_workers = True,
     )
 
-    print(f"----------- 333 ------------- ")
-    # Create distributed neighbor loader for testing.
-    test_idx = test_idx.split(test_idx.size(
-        0) // num_training_procs_per_node)[local_proc_rank]
     test_loader = pyg_dist.DistNeighborLoader(
         data=partition_data,
         # data=dataset,
