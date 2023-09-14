@@ -45,7 +45,7 @@ class HeteroGNN(torch.nn.Module):
         for conv in self.convs:
             x_dict = conv(x_dict, edge_index_dict)
             x_dict = {key: x.relu() for key, x in x_dict.items()}
-        return self.lin(x_dict)
+        return self.lin(x_dict['v0'])
 
 print("\n\n\n\n\n\n")
 @torch.no_grad()
@@ -229,9 +229,9 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
       print(f"-------- x2_worker: batch={batch}, cnt={i} --------- ")
       optimizer.zero_grad()
       out = model(batch.x_dict, batch.edge_index_dict)
-      batch_size = batch['paper'].batch_size
+      batch_size = batch['v0'].batch_size
       out = out[:batch_size]
-      target = batch['paper'].y[:batch_size]
+      target = batch['v0'].y[:batch_size]
       loss = F.nll_loss(out, target)
       loss.backward()
       optimizer.step()
