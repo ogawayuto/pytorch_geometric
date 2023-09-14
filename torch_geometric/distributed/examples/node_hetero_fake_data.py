@@ -95,9 +95,11 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   ) = load_partition_info(root_dir, node_rank)
   print(f"-------- meta={meta}, partition_idx={partition_idx}, node_pb={node_pb} ")
 
-  graph.labels = torch.arange(node_pb['v0'].size(0))
+  #graph.labels = torch.arange(node_pb['v0'].size(0))
   node_pb_cat = torch.cat(list(node_pb.values()))
   edge_pb_cat = torch.cat(list(edge_pb.values()))
+  v0_id=partition_data[0].get_global_id('v0')
+  graph.labels=torch.arange(v0_id.size(0))
   
   graph.num_partitions = num_partitions
   graph.partition_idx = partition_idx
@@ -124,7 +126,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   partition_data = (feature, graph)
 
   # Create distributed neighbor loader for training
-  v0_id=partition_data[0].get_global_id('v0')
+
   train_idx = ('v0', partition_data[0].get_global_id('v0').split(v0_id.size(0) // 2)[node_rank])
   print(train_idx, train_idx[1].size(0))
   
