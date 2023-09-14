@@ -103,8 +103,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   graph.node_pb = node_pb
   graph.edge_pb = edge_pb
   graph.meta = meta
-  edge_attrs = graph.get_all_edge_attrs()[0]
-  graph.labels = torch.arange(edge_attrs.size[0])
+  graph.labels = feature._global_id['v0']
   
   feature.num_partitions = num_partitions
   feature.partition_idx = partition_idx
@@ -232,7 +231,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
       batch_size = batch['v0'].batch_size
       out = out[:batch_size]
       target = batch['v0'].y[:batch_size]
-      loss = F.nll_loss(out, target)
+      loss = F.cross_entropy(out, target)
       loss.backward()
       optimizer.step()
       if i == len(train_loader)-1:
