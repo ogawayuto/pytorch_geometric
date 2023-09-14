@@ -112,7 +112,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   feature.meta = meta
   
   v0_id=feature.get_global_id('v0')
-  graph.labels=torch.arange(v0_id.size(0))
+  graph.labels=torch.randint(10, v0_id.size())
   train_idx = ('v0', v0_id.split(v0_id.size(0) // 2)[node_rank])
 
   # if node_label_file is not None:
