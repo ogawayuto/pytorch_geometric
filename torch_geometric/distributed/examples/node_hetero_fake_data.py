@@ -95,15 +95,15 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   ) = load_partition_info(root_dir, node_rank)
   print(f"-------- meta={meta}, partition_idx={partition_idx}, node_pb={node_pb} ")
 
-  node_pb = torch.cat(list(node_pb.values()))
-  edge_pb = torch.cat(list(edge_pb.values()))
+  graph.labels = torch.arange(node_pb['v0'].size(0))
+  node_pb_cat = torch.cat(list(node_pb.values()))
+  edge_pb_cat = torch.cat(list(edge_pb.values()))
   
   graph.num_partitions = num_partitions
   graph.partition_idx = partition_idx
-  graph.node_pb = node_pb
-  graph.edge_pb = edge_pb
+  graph.node_pb = node_pb_cat
+  graph.edge_pb = edge_pb_cat
   graph.meta = meta
-  graph.labels = feature._global_id['v0']
   
   feature.num_partitions = num_partitions
   feature.partition_idx = partition_idx

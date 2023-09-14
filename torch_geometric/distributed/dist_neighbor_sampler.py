@@ -358,8 +358,6 @@ class DistNeighborSampler:
                 node_with_dupl.append(out.node)
                 edge.append(out.edge)
                 
-
-
                 if self.disjoint:
                     src_batch = Tensor(list(zip(*node_wo_dupl))[0]).type(
                         torch.int64)
