@@ -9,7 +9,7 @@ data_path="/home/pyg/graphlearn-dev/partition_fake"
 
 data = FakeHeteroDataset(
     num_graphs=1,
-    avg_num_nodes=100,
+    avg_num_nodes=1000,
     avg_degree=3,
     num_node_types=2,
     num_edge_types=4,
