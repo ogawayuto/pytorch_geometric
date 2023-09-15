@@ -122,7 +122,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   # print("input nodes:", train_idx)
   # print("input size:", train_idx[1].size(0))
     
-  # graph.labels = torch.randint(10, v0.size())
+  #graph.labels = torch.randint(10, v0.size())
 
   partition_data = (feature, graph)
 
@@ -152,7 +152,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   train_loader = DistNeighborLoader(
     data=partition_data,
     num_neighbors=[3, 5],
-    input_nodes='v0',
+    input_nodes=train_idx,
     batch_size=batch_size,
     shuffle=True,
     device=current_device,
@@ -367,25 +367,25 @@ if __name__ == '__main__':
 
   f.write('--- Loading data partition ...\n')
   root_dir = "/home/pyg/graphlearn-dev/partition_fake"
-  #data_pidx = args.node_rank % args.num_dataset_partitions
+  data_pidx = args.node_rank % args.num_dataset_partitions
 
-  # node_label_file=osp.join(root_dir, f'{args.dataset}-label', 'label.pt')
+  node_label_file=osp.join(root_dir, f'{args.dataset}-label', 'label.pt')
 
-  # train_idx = torch.load(
-  #   osp.join(root_dir, f'{args.dataset}-train-partitions', f'partition{data_pidx}.pt')
-  # )
-  # test_idx = torch.load(
-  #   osp.join(root_dir, f'{args.dataset}-test-partitions', f'partition{data_pidx}.pt')
-  # )
-  # train_idx.share_memory_()
-  # test_idx.share_memory_()
+  train_idx = torch.load(
+    osp.join(root_dir, f'{args.dataset}-train-partitions', f'partition{data_pidx}.pt')
+  )
+  test_idx = torch.load(
+    osp.join(root_dir, f'{args.dataset}-test-partitions', f'partition{data_pidx}.pt')
+  )
+  train_idx.share_memory_()
+  test_idx.share_memory_()
 
   f.write('--- Launching training processes ...\n')
   
   torch.multiprocessing.spawn(
     run_training_proc,
     args=(args.num_nodes, args.node_rank, args.num_training_procs,
-          args.dataset, root_dir, None, args.in_channel, args.out_channel, None, None, args.epochs,
+          args.dataset, root_dir, None, args.in_channel, args.out_channel, train_idx, test_idx, args.epochs,
           args.batch_size, args.master_addr, args.training_pg_master_port,
           args.train_loader_master_port, args.test_loader_master_port),
     nprocs=args.num_training_procs,
