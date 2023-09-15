@@ -125,7 +125,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   # 50/50 train/test split
   input_nodes = v0_id.split(v0_id.size(0) // 2)
   train_idx = ('v0', input_nodes[0])
-  #train_idx[1].share_memory_()
+  train_idx[1].share_memory_()
   print(train_idx, train_idx[1].size(0))
   
   # test_idx = ('v0', input_nodes[1])
@@ -192,7 +192,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   # )
 
   model = HeteroGNN(hidden_channels=64, out_channels=num_classes,
-            num_layers=2)
+            num_layers=3)
 
   init_params()
 
