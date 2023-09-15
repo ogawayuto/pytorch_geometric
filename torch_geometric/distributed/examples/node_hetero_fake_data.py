@@ -84,7 +84,13 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
                       epochs: int, batch_size: int, master_addr: str,
                       training_pg_master_port: int, train_loader_master_port: int,
                       test_loader_master_port: int):
-  
+  @torch.no_grad()
+  def init_params():
+      # Initialize lazy parameters via forwarding a single batch to the model:
+      batch = next(iter(train_loader))
+      batch = batch.to(torch.device('cpu'), 'edge_index')
+      model(batch.x_dict, batch.edge_index_dict)
+      
   graph = LocalGraphStore.from_partition(root_dir, node_rank)
   print(f"-------- graph={graph} ")
   edge_attrs = graph.get_all_edge_attrs()
@@ -93,16 +99,12 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   (
     meta, num_partitions, partition_idx, node_pb, edge_pb
   ) = load_partition_info(root_dir, node_rank)
-  print(f"-------- meta={meta}, partition_idx={partition_idx}")
+  print(f"-------- meta={meta}, partition_idx={partition_idx}, node_pb={node_pb} ")
 
   node_pb = torch.cat(list(node_pb.values()))
   edge_pb = torch.cat(list(edge_pb.values()))
   
-  graph.num_partitions = num_partitions
-  graph.partition_idx = partition_idx
-  graph.node_pb = node_pb
-  graph.edge_pb = edge_pb
-  graph.meta = meta
+  num_classes = 10
   
   feature.num_partitions = num_partitions
   feature.partition_idx = partition_idx
@@ -110,23 +112,26 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   feature.edge_feat_pb = edge_pb
   feature.meta = meta
   
-  
-  v0=feature.get_global_id('v0').sort()[0]
-  # 50/50 train/test split
-  # train_idx = v0.split(v0.size(0) // 2)[0]
-  # train_idx.share_memory_()
-  # train_idx = ('v0', train_idx)
-  # test_idx = v0.split(v0.size(0) // 2)[1]
-  # test_idx.share_memory_()
-  # test_idx = ('v0', test_idx)
-  # print("input nodes:", train_idx)
-  # print("input size:", train_idx[1].size(0))
-    
-  #graph.labels = torch.randint(10, v0.size())
+  graph.num_partitions = num_partitions
+  graph.partition_idx = partition_idx
+  graph.node_pb = node_pb
+  graph.edge_pb = edge_pb
+  graph.meta = meta
+  graph.labels = torch.randint(num_classes, graph.node_pb.size())
 
   partition_data = (feature, graph)
 
+  v0_id=partition_data[0].get_global_id('v0').sort()[0]
+  # 50/50 train/test split
+  input_nodes = v0_id.split(v0_id.size(0) // 2)
+  train_idx = ('v0', input_nodes[0])
+  #train_idx[1].share_memory_()
+  print(train_idx, train_idx[1].size(0))
   
+  # test_idx = ('v0', input_nodes[1])
+  # test_idx[1].share_memory_()
+  # print(test_idx, test_idx[1].size(0))
+
   # Initialize graphlearn_torch distributed worker group context.
   current_ctx = DistContext(world_size=num_nodes*num_training_procs_per_node,
       rank=node_rank*num_training_procs_per_node+local_proc_rank,
@@ -144,8 +149,8 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     init_method='tcp://{}:{}'.format(master_addr, training_pg_master_port)
   )
 
-  num_workers=0
-  concurrency=1
+  num_workers=2
+  concurrency=4
   batch_size=10
   
   # Create distributed neighbor loader for training
@@ -166,20 +171,11 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     rpc_worker_names=rpc_worker_names,
     disjoint=False
   )
-  
-  @torch.no_grad()
-  def init_params():
-      # Initialize lazy parameters via forwarding a single batch to the model:
-      batch = next(iter(train_loader))
-      batch = batch.to(torch.device('cpu'), 'edge_index')
-      model(batch.x_dict, batch.edge_index_dict)
       
-  print(f"----------- 333 ------------- ")
-  # Create distributed neighbor loader for testing.
-  # test_idx = ('paper', test_idx.split(test_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
+  # # Create distributed neighbor loader for testing.
   # test_loader = DistNeighborLoader(
   #   data=partition_data,
-  #   num_neighbors=[3, 2, 1],
+  #   num_neighbors=[-1],
   #   input_nodes=test_idx,
   #   batch_size=batch_size,
   #   shuffle=False,
@@ -188,36 +184,22 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   #   concurrency=concurrency,
   #   master_addr=master_addr,
   #   master_port=test_loader_master_port,
-  #   async_sampling = False,
+  #   async_sampling = True,
   #   filter_per_worker = False,
   #   current_ctx=current_ctx,
   #   rpc_worker_names=rpc_worker_names,
   #   disjoint=False
   # )
 
-  # Define model and optimizer.
-  #torch.cuda.set_device(current_device)
-  # node_types = ['paper']
-  # edge_types = [('paper', 'cites', 'paper')]
-  # print(edge_types)
-  # metadata=(node_types, edge_types)
-  # model = GraphSAGE(
-  #   in_channels=128,
-  #   hidden_channels=256,
-  #   num_layers=1,
-  #   out_channels=349,
-  # ).to(current_device)
-  
-  # model=to_hetero(model, metadata)
-  model = HeteroGNN(hidden_channels=64, out_channels=8,
+  model = HeteroGNN(hidden_channels=64, out_channels=num_classes,
             num_layers=2)
 
   init_params()
 
-  model = DistributedDataParallel(model) #, device_ids=[current_device.index])
+  model = DistributedDataParallel(model, find_unused_parameters=False) 
   optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
   
-  print(f"----------- 444 ------------- ")
+  print(f"-----------  START TRAINING  ------------- ")
   # Train and test.
   f = open('dist_sage_sup.txt', 'a+')
   for epoch in range(0, epochs):
@@ -244,9 +226,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     print("********************************************************************************************** ")
     print("\n\n\n\n\n\n")
 
-
     # Test accuracy.
-    #if epoch == 0 or epoch > (epochs // 2):
     # if epoch % 5 == 0: # or epoch > (epochs // 2):
     #   test_acc = test(model, test_loader, dataset_name)
     #   f.write(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
@@ -257,8 +237,6 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     #   print("\n\n\n\n\n\n")
     #   #torch.cuda.synchronize()
     #   torch.distributed.barrier()
-
-  print(f"----------- 555 ------------- ")
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(
@@ -367,25 +345,13 @@ if __name__ == '__main__':
 
   f.write('--- Loading data partition ...\n')
   root_dir = "/home/pyg/graphlearn-dev/partition_fake"
-  data_pidx = args.node_rank % args.num_dataset_partitions
-
-  node_label_file=osp.join(root_dir, f'{args.dataset}-label', 'label.pt')
-
-  train_idx = torch.load(
-    osp.join(root_dir, f'{args.dataset}-train-partitions', f'partition{data_pidx}.pt')
-  )
-  test_idx = torch.load(
-    osp.join(root_dir, f'{args.dataset}-test-partitions', f'partition{data_pidx}.pt')
-  )
-  train_idx.share_memory_()
-  test_idx.share_memory_()
-
-  f.write('--- Launching training processes ...\n')
   
+  f.write('--- Launching training processes ...\n')
+
   torch.multiprocessing.spawn(
     run_training_proc,
     args=(args.num_nodes, args.node_rank, args.num_training_procs,
-          args.dataset, root_dir, None, args.in_channel, args.out_channel, train_idx, test_idx, args.epochs,
+          args.dataset, root_dir, None, args.in_channel, args.out_channel, None, None, args.epochs,
           args.batch_size, args.master_addr, args.training_pg_master_port,
           args.train_loader_master_port, args.test_loader_master_port),
     nprocs=args.num_training_procs,
