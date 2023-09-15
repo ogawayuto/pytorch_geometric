@@ -93,7 +93,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   (
     meta, num_partitions, partition_idx, node_pb, edge_pb
   ) = load_partition_info(root_dir, node_rank)
-  print(f"-------- meta={meta}, partition_idx={partition_idx}, node_pb={node_pb} ")
+  print(f"-------- meta={meta}, partition_idx={partition_idx}")
 
   node_pb = torch.cat(list(node_pb.values()))
   edge_pb = torch.cat(list(edge_pb.values()))
@@ -103,22 +103,29 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   graph.node_pb = node_pb
   graph.edge_pb = edge_pb
   graph.meta = meta
-  graph.labels = feature._global_id['v0']
   
   feature.num_partitions = num_partitions
   feature.partition_idx = partition_idx
   feature.node_feat_pb = node_pb
   feature.edge_feat_pb = edge_pb
   feature.meta = meta
-
-  partition_data = (feature, graph)
-
-  # Create distributed neighbor loader for training
+  
+  
   v0=feature.get_global_id('v0')
-  train_idx = ('v0', v0.split(v0.size(0) // 2)[node_rank])
+  # 50/50 train/test split
+  train_idx = v0.split(v0.size(0) // 2)[0]
+  train_idx.share_memory_()
+  train_idx = ('v0', train_idx)
+  test_idx = v0.split(v0.size(0) // 2)[1]
+  test_idx.share_memory_()
+  test_idx = ('v0', test_idx)
   print("input nodes:", train_idx)
   print("input size:", train_idx[1].size(0))
   
+  graph.labels = torch.randint(10, v0.size())
+
+  partition_data = (feature, graph)
+
   
   # Initialize graphlearn_torch distributed worker group context.
   current_ctx = DistContext(world_size=num_nodes*num_training_procs_per_node,
@@ -141,6 +148,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   concurrency=1
   batch_size=10
   
+  # Create distributed neighbor loader for training
   train_loader = DistNeighborLoader(
     data=partition_data,
     num_neighbors=[3, 5],
