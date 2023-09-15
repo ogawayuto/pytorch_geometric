@@ -110,8 +110,6 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   feature.edge_feat_pb = edge_pb_cat
   feature.meta = meta
   
-  v0=feature.get_global_id('v0')
-  v0.share_memory_()
   #graph.labels=torch.randint(10, v0_id.size())
   partition_data = (feature, graph)
   
@@ -137,6 +135,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   concurrency=1
   batch_size=10
   
+  v0=feature.get_global_id('v0')
   train_idx = ('v0', v0.split(v0.size(0) // 2)[node_rank])
   
   # Create distributed neighbor loader for training
