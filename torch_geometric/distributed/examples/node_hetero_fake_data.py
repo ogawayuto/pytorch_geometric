@@ -45,7 +45,7 @@ class HeteroGNN(torch.nn.Module):
         for conv in self.convs:
             x_dict = conv(x_dict, edge_index_dict)
             x_dict = {key: x.relu() for key, x in x_dict.items()}
-        return self.lin(x_dict['v0'])
+        return self.lin(x_dict)
 
 print("\n\n\n\n\n\n")
 @torch.no_grad()
@@ -95,23 +95,39 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   ) = load_partition_info(root_dir, node_rank)
   print(f"-------- meta={meta}, partition_idx={partition_idx}, node_pb={node_pb} ")
 
-  node_pb_cat = torch.cat(list(node_pb.values()))
-  edge_pb_cat = torch.cat(list(edge_pb.values()))
+  node_pb = torch.cat(list(node_pb.values()))
+  edge_pb = torch.cat(list(edge_pb.values()))
   
   graph.num_partitions = num_partitions
   graph.partition_idx = partition_idx
-  graph.node_pb = node_pb_cat
-  graph.edge_pb = edge_pb_cat
+  graph.node_pb = node_pb
+  graph.edge_pb = edge_pb
   graph.meta = meta
+  edge_attrs = graph.get_all_edge_attrs()[0]
+  graph.labels = torch.arange(edge_attrs.size[0])
   
   feature.num_partitions = num_partitions
   feature.partition_idx = partition_idx
-  feature.node_feat_pb = node_pb_cat
-  feature.edge_feat_pb = edge_pb_cat
+  feature.node_feat_pb = node_pb
+  feature.edge_feat_pb = edge_pb
   feature.meta = meta
   
-  #graph.labels=torch.randint(10, v0_id.size())
+  # if node_label_file is not None:
+  #     if isinstance(node_label_file, dict):
+  #         whole_node_labels = {}
+  #         for ntype, file in node_label_file.items():
+  #             whole_node_labels[ntype] = torch.load(file)
+  #     else:
+  #         whole_node_labels = torch.load(node_label_file)
+  # node_labels = whole_node_labels
+  # graph.labels = node_labels
+
   partition_data = (feature, graph)
+
+  # Create distributed neighbor loader for training
+  v0_id=partition_data[0].get_global_id('v0')
+  train_idx = ('v0', partition_data[0].get_global_id('v0').split(v0_id.size(0) // 2)[node_rank])
+  print(train_idx, train_idx[1].size(0))
   
   
   # Initialize graphlearn_torch distributed worker group context.
@@ -135,10 +151,6 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   concurrency=1
   batch_size=10
   
-  v0=feature.get_global_id('v0')
-  train_idx = ('v0', v0.split(v0.size(0) // 2)[node_rank])
-  
-  # Create distributed neighbor loader for training
   train_loader = DistNeighborLoader(
     data=partition_data,
     num_neighbors=[3, 5],
@@ -172,7 +184,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   #   num_neighbors=[3, 2, 1],
   #   input_nodes=test_idx,
   #   batch_size=batch_size,
-  #   shuffle=False,
+  #   shuffle=True,
   #   device=torch.device('cpu'),
   #   num_workers=num_workers,
   #   concurrency=concurrency,
@@ -217,10 +229,10 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
       print(f"-------- x2_worker: batch={batch}, cnt={i} --------- ")
       optimizer.zero_grad()
       out = model(batch.x_dict, batch.edge_index_dict)
-      batch_size = batch['v0'].batch_size
+      batch_size = batch['paper'].batch_size
       out = out[:batch_size]
-      target = batch['v0'].y[:batch_size]
-      loss = F.cross_entropy(out, target)
+      target = batch['paper'].y[:batch_size]
+      loss = F.nll_loss(out, target)
       loss.backward()
       optimizer.step()
       if i == len(train_loader)-1:
