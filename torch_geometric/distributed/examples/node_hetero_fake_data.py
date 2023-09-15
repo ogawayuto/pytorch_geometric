@@ -149,8 +149,8 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     init_method='tcp://{}:{}'.format(master_addr, training_pg_master_port)
   )
 
-  num_workers=2
-  concurrency=4
+  num_workers=0
+  concurrency=2
   batch_size=10
   
   # Create distributed neighbor loader for training
