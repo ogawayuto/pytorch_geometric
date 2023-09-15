@@ -95,25 +95,29 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   ) = load_partition_info(root_dir, node_rank)
   print(f"-------- meta={meta}, partition_idx={partition_idx}, node_pb={node_pb} ")
 
-  node_pb_cat = torch.cat(list(node_pb.values()))
-  edge_pb_cat = torch.cat(list(edge_pb.values()))
+  node_pb = torch.cat(list(node_pb.values()))
+  edge_pb = torch.cat(list(edge_pb.values()))
   
   graph.num_partitions = num_partitions
   graph.partition_idx = partition_idx
-  graph.node_pb = node_pb_cat
-  graph.edge_pb = edge_pb_cat
+  graph.node_pb = node_pb
+  graph.edge_pb = edge_pb
   graph.meta = meta
+  graph.labels = feature._global_id['v0']
   
   feature.num_partitions = num_partitions
   feature.partition_idx = partition_idx
-  feature.node_feat_pb = node_pb_cat
-  feature.edge_feat_pb = edge_pb_cat
+  feature.node_feat_pb = node_pb
+  feature.edge_feat_pb = edge_pb
   feature.meta = meta
-  
-  v0=feature.get_global_id('v0')
-  #graph.labels=torch.randint(10, v0.size())
-  
+
   partition_data = (feature, graph)
+
+  # Create distributed neighbor loader for training
+  v0=feature.get_global_id('v0')
+  train_idx = ('v0', v0.split(v0.size(0) // 2)[node_rank])
+  print("input nodes:", train_idx)
+  print("input size:", train_idx[1].size(0))
   
   
   # Initialize graphlearn_torch distributed worker group context.
@@ -137,8 +141,6 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   concurrency=1
   batch_size=10
   
-  train_idx = ('v0', v0.split(v0.size(0) // 2)[node_rank])
-  # Create distributed neighbor loader for training
   train_loader = DistNeighborLoader(
     data=partition_data,
     num_neighbors=[3, 5],
@@ -164,6 +166,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
       batch = batch.to(torch.device('cpu'), 'edge_index')
       model(batch.x_dict, batch.edge_index_dict)
       
+  print(f"----------- 333 ------------- ")
   # Create distributed neighbor loader for testing.
   # test_idx = ('paper', test_idx.split(test_idx.size(0) // num_training_procs_per_node)[local_proc_rank])
   # test_loader = DistNeighborLoader(
