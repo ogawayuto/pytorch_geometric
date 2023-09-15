@@ -113,16 +113,16 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   
   v0=feature.get_global_id('v0').sort()[0]
   # 50/50 train/test split
-  train_idx = v0.split(v0.size(0) // 2)[0]
-  train_idx.share_memory_()
-  train_idx = ('v0', train_idx)
-  test_idx = v0.split(v0.size(0) // 2)[1]
-  test_idx.share_memory_()
-  test_idx = ('v0', test_idx)
-  print("input nodes:", train_idx)
-  print("input size:", train_idx[1].size(0))
-  
-  graph.labels = {'v0' : torch.randint(10, v0.size())}
+  # train_idx = v0.split(v0.size(0) // 2)[0]
+  # train_idx.share_memory_()
+  # train_idx = ('v0', train_idx)
+  # test_idx = v0.split(v0.size(0) // 2)[1]
+  # test_idx.share_memory_()
+  # test_idx = ('v0', test_idx)
+  # print("input nodes:", train_idx)
+  # print("input size:", train_idx[1].size(0))
+    
+  # graph.labels = torch.randint(10, v0.size())
 
   partition_data = (feature, graph)
 
@@ -152,7 +152,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   train_loader = DistNeighborLoader(
     data=partition_data,
     num_neighbors=[3, 5],
-    input_nodes=train_idx,
+    input_nodes='v0',
     batch_size=batch_size,
     shuffle=True,
     device=current_device,
@@ -381,7 +381,7 @@ if __name__ == '__main__':
   # test_idx.share_memory_()
 
   f.write('--- Launching training processes ...\n')
-
+  
   torch.multiprocessing.spawn(
     run_training_proc,
     args=(args.num_nodes, args.node_rank, args.num_training_procs,
