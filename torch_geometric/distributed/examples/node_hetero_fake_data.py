@@ -110,23 +110,10 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   feature.edge_feat_pb = edge_pb_cat
   feature.meta = meta
   
-  v0_id=feature.get_global_id('v0')
-  graph.labels=torch.randint(10, v0_id.size())
-  train_idx = ('v0', v0_id.split(v0_id.size(0) // 2)[node_rank])
-
-  # if node_label_file is not None:
-  #     if isinstance(node_label_file, dict):
-  #         whole_node_labels = {}
-  #         for ntype, file in node_label_file.items():
-  #             whole_node_labels[ntype] = torch.load(file)
-  #     else:
-  #         whole_node_labels = torch.load(node_label_file)
-  # node_labels = whole_node_labels
-  # graph.labels = node_labels
-
+  v0=feature.get_global_id('v0')
+  v0.share_memory_()
+  #graph.labels=torch.randint(10, v0_id.size())
   partition_data = (feature, graph)
-
-
   
   
   # Initialize graphlearn_torch distributed worker group context.
@@ -149,7 +136,9 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   num_workers=0
   concurrency=1
   batch_size=10
-    
+  
+  train_idx = ('v0', v0.split(v0.size(0) // 2)[node_rank])
+  
   # Create distributed neighbor loader for training
   train_loader = DistNeighborLoader(
     data=partition_data,
