@@ -111,7 +111,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   feature.meta = meta
   
   
-  v0=feature.get_global_id('v0')
+  v0=feature.get_global_id('v0').sort()[0]
   # 50/50 train/test split
   train_idx = v0.split(v0.size(0) // 2)[0]
   train_idx.share_memory_()
@@ -122,7 +122,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   print("input nodes:", train_idx)
   print("input size:", train_idx[1].size(0))
   
-  graph.labels = torch.randint(10, v0.size())
+  graph.labels = {'v0' : torch.randint(10, v0.size())}
 
   partition_data = (feature, graph)
 
