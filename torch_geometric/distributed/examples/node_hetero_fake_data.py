@@ -118,7 +118,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   graph.edge_pb = edge_pb_cat
   graph.meta = meta
   
-  #graph.labels = torch.randint(num_classes, graph.node_pb.size())
+  graph.labels = torch.randint(num_classes, graph.node_pb.size())
 
   partition_data = (feature, graph)
   
