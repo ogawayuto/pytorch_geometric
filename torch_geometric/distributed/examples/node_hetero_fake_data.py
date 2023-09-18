@@ -33,9 +33,9 @@ class HeteroGNN(torch.nn.Module):
         self.convs = torch.nn.ModuleList()
         for _ in range(num_layers):
             conv = HeteroConv({
-                ('v0', 'e0', 'v0'): GCNConv(-1, hidden_channels),
+                ('v0', 'e0', 'v0'): SAGEConv(-1, hidden_channels),
                 ('v0', 'e0', 'v1'): SAGEConv((-1, -1), hidden_channels),
-                ('v1', 'e0', 'v0'): GATConv((-1, -1), hidden_channels, add_self_loops=False),
+                ('v1', 'e0', 'v0'): SAGEConv((-1, -1), hidden_channels, add_self_loops=False),
             }, aggr='sum')
             self.convs.append(conv)
 
@@ -156,7 +156,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
 
   num_workers=0
   concurrency=2
-  batch_size=10
+  batch_size=64
   
   # Create distributed neighbor loader for training
   train_loader = DistNeighborLoader(
@@ -201,7 +201,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
 
   init_params()
 
-  model = DistributedDataParallel(model, find_unused_parameters=False) 
+  model = DistributedDataParallel(model, find_unused_parameters=True) 
   optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
   
   print(f"-----------  START TRAINING  ------------- ")
