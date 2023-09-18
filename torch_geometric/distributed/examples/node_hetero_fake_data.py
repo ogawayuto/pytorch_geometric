@@ -99,7 +99,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   (
     meta, num_partitions, partition_idx, node_pb, edge_pb
   ) = load_partition_info(root_dir, node_rank)
-  print(f"-------- meta={meta}, partition_idx={partition_idx}, node_pb={node_pb} ")
+  print(f"-------- meta={meta}, partition_idx={partition_idx}")
 
   node_pb_cat = torch.cat(list(node_pb.values()))
   edge_pb_cat = torch.cat(list(edge_pb.values()))
@@ -124,10 +124,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   
   # generate input node split for each fake partition
   num_v0_nodes = node_pb['v0'].size(0)
-  if node_rank == 0:
-    input_nodes = torch.arange(num_v0_nodes).split(num_v0_nodes // 2 )[0]
-  elif node_rank == 1:
-    input_nodes = torch.arange(num_v0_nodes).split(num_v0_nodes // 2 )[1:]
+  input_nodes = torch.arange(num_v0_nodes).split(num_v0_nodes // 2 )[node_rank]
     
   #v0_id=partition_data[0].get_global_id('v0').sort()[0]
   # 50/50 train/test split
@@ -136,7 +133,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   # train_idx[1].share_memory_()
   print(train_idx, train_idx[1].size(0))
   
-  # test_idx = ('v0', input_nodes[1:])
+  # test_idx = ('v0', input_nodes[1])
   # test_idx[1].share_memory_()
   # print(test_idx, test_idx[1].size(0))
 
