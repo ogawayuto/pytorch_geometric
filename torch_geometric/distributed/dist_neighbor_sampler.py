@@ -32,7 +32,7 @@ from torch_geometric.sampler import (
     SamplerOutput,
     edge_sample_async,
 )
-from torch_geometric.sampler.base import SubgraphType, NumNeighbors
+from torch_geometric.sampler.base import NumNeighbors, SubgraphType
 from torch_geometric.sampler.utils import remap_keys
 from torch_geometric.typing import (
     Dict,
@@ -110,7 +110,7 @@ class DistNeighborSampler:
         self.time_attr = time_attr
         self.csc = True  # always true?
         self.with_edge_attr = self.dist_feature.has_edge_attr()
-        
+
         self.edge_permutation = None
 
     def register_sampler_rpc(self) -> None:
@@ -131,7 +131,7 @@ class DistNeighborSampler:
             temporal_strategy=self.temporal_strategy,
             time_attr=self.time_attr,
         )
-                
+
         rpc_sample_callee = RpcSamplingCallee(self._sampler, self.device)
         self.rpc_sample_callee_id = rpc_register(rpc_sample_callee)
 
@@ -343,7 +343,7 @@ class DistNeighborSampler:
                 if out.node.numel() == 0:
                     # no neighbors were sampled
                     break
-            
+
                 # remove duplicates
                 # TODO: find better method to remove duplicates
                 node_wo_dupl = OrderedSet(
@@ -358,7 +358,7 @@ class DistNeighborSampler:
 
                 node_with_dupl.append(out.node)
                 edge.append(out.edge)
-                
+
                 if self.disjoint:
                     src_batch = Tensor(list(zip(*node_wo_dupl))[0]).type(
                         torch.int64)
@@ -367,7 +367,7 @@ class DistNeighborSampler:
                 num_sampled_nodes.append(len(src))
                 num_sampled_edges.append(len(out.node))
                 sampled_nbrs_per_node += out.metadata
-            
+
             row, col = torch.ops.pyg.relabel_neighborhood(
                 seed, torch.cat(node_with_dupl), sampled_nbrs_per_node,
                 self._sampler.num_nodes,
@@ -448,9 +448,13 @@ class DistNeighborSampler:
         Returns :obj:`SamplerOutput` containing all merged outputs.
         """
         sampled_nodes_with_dupl = [
-            o.node if o is not None else torch.empty(0, dtype=torch.int64) for o in outputs
+            o.node if o is not None else torch.empty(0, dtype=torch.int64)
+            for o in outputs
         ]
-        edge_ids = [o.edge if o is not None else torch.empty(0, dtype=torch.int64) for o in outputs]
+        edge_ids = [
+            o.edge if o is not None else torch.empty(0, dtype=torch.int64)
+            for o in outputs
+        ]
         cumm_sampled_nbrs_per_node = [
             o.metadata if o is not None else [] for o in outputs
         ]
@@ -461,9 +465,9 @@ class DistNeighborSampler:
         partitions_num = self.dist_graph.meta['num_parts']
 
         out = torch.ops.pyg.merge_sampler_outputs(
-            sampled_nodes_with_dupl, cumm_sampled_nbrs_per_node, partition_ids,
-            partition_orders, partitions_num, one_hop_num, edge_ids, src_batch,
-            self.disjoint, self.with_edge)
+            sampled_nodes_with_dupl, edge_ids, cumm_sampled_nbrs_per_node,
+            partition_ids, partition_orders, partitions_num, one_hop_num,
+            src_batch, self.disjoint)
         (out_node_with_dupl, out_edge, out_batch,
          out_sampled_nbrs_per_node) = out
 
@@ -486,11 +490,7 @@ class DistNeighborSampler:
 
         Returns merged samplers outputs from local / remote machines.
         """
-        src_ntype = (etype[0] if not self.csc else
-                     etype[2]) if etype is not None else None
-
-        partition_ids = self.dist_graph.get_partition_ids_from_nids(
-            srcs)
+        partition_ids = self.dist_graph.get_partition_ids_from_nids(srcs)
         partition_orders = torch.zeros(len(partition_ids), dtype=torch.long)
 
         p_outputs: List[SamplerOutput] = [None
