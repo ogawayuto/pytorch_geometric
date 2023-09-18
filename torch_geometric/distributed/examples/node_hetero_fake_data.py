@@ -197,7 +197,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   # )
 
   model = HeteroGNN(hidden_channels=64, out_channels=num_classes,
-            num_layers=3)
+            num_layers=2)
 
   init_params()
 
