@@ -18,13 +18,13 @@ def partition_dataset(
     dataset = OGB_MAG(root=ogbn_dataset, preprocess='metapath2vec')
     data = dataset[0]
 
-    partitioner = Partitioner(data, num_parts, save_dir, recursive)
-    partitioner.generate_partition()
+    # partitioner = Partitioner(data, num_parts, save_dir, recursive)
+    # partitioner.generate_partition()
 
-    print('-- Saving label ...')
-    label_dir = osp.join(root_dir, f'{ogbn_dataset}-label')
-    os.makedirs(label_dir, exist_ok=True)
-    torch.save(data['paper'].y.squeeze(), osp.join(label_dir, 'label.pt'))
+    # print('-- Saving label ...')
+    # label_dir = osp.join(root_dir, f'{ogbn_dataset}-label')
+    # os.makedirs(label_dir, exist_ok=True)
+    # torch.save(data['paper'].y.squeeze(), osp.join(label_dir, 'label.pt'))
 
     print('-- Partitioning training indices ...')
     train_idx = data['paper'].train_mask.nonzero().view(-1)
