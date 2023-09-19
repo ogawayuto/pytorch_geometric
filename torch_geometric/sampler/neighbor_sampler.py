@@ -188,13 +188,10 @@ class NeighborSampler(BaseSampler):
             self.to_rel_type = {k: '__'.join(k) for k in self.edge_types}
             self.to_edge_type = {v: k for k, v in self.to_rel_type.items()}
 
-                # Conversion to/from C++ string type (see above):
-                self.to_rel_type = {k: '__'.join(k) for k in self.edge_types}
-                self.to_edge_type = {v: k for k, v in self.to_rel_type.items()}
-                # Convert the graph data into CSC format for sampling:
-                row_dict, colptr_dict, self.perm = graph_store.csc()
-                self.row_dict = remap_keys(row_dict, self.to_rel_type)
-                self.colptr_dict = remap_keys(colptr_dict, self.to_rel_type)
+            # Convert the graph data into CSC format for sampling:
+            row_dict, colptr_dict, self.perm = graph_store.csc()
+            self.row_dict = remap_keys(row_dict, self.to_rel_type)
+            self.colptr_dict = remap_keys(colptr_dict, self.to_rel_type)
 
         if (self.edge_weight is not None
                 and not torch_geometric.typing.WITH_WEIGHTED_NEIGHBOR_SAMPLE):
