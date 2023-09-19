@@ -217,9 +217,6 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
       target = batch['v0'].y[:batch_size]
       loss = F.cross_entropy(out, target)
       loss.backward()
-      for name, param in model.named_parameters():
-        if param.grad is None:
-            print(name)
       optimizer.step()
       if i == len(train_loader)-1:
           print(" ---- dist.barrier ----")
@@ -228,17 +225,14 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     end = time.time()
     f.write(f'-- [Trainer {current_ctx.rank}] Epoch: {epoch:03d}, Loss: {loss:.4f}, Epoch Time: {end - start}\n')
     print(f'-- [Trainer {current_ctx.rank}] Epoch: {epoch:03d}, Loss: {loss:.4f}, Epoch Time: {end - start}\n')
-    print("\n****************************************************************************\n")
+    print("\n***************************************************************\n")
 
     # Test accuracy.
     if epoch % 5 == 0: # or epoch > (epochs // 2):
       test_acc = test(model, test_loader)
       f.write(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
       print(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
-
-      print("\n\n\n\n\n\n")
-      print("********************************************************************************************** ")
-      print("\n\n\n\n\n\n")
+    print("\n***************************************************************\n")
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(
