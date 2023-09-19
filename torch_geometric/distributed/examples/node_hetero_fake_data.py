@@ -200,7 +200,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   init_params()
 
   model = DistributedDataParallel(model, find_unused_parameters=True) 
-  optimizer = torch.optim.Adam(model.parameters(), lr=0.004)
+  optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
   
   print(f"-----------  START TRAINING  ------------- ")
   # Train and test.
