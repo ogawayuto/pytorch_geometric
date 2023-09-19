@@ -49,17 +49,16 @@ class HeteroGNN(torch.nn.Module):
 
 print("\n\n\n\n\n\n")
 @torch.no_grad()
-def test(model, test_loader, dataset_name):
-  evaluator = Evaluator(name='ogbn-mag')
+def test(model, test_loader):
   model.eval()
   xs = []
   y_true = []
+  device = torch.device('cpu')
   for i, batch in enumerate(test_loader):
-    if i == 0:
-      device = torch.device('cpu')
-    x = model(batch.x, batch.edge_index)[:batch.batch_size]
+    batch_size = batch['v0'].batch_size
+    x = model(batch.x_dict, batch.edge_index_dict)[:batch_size]
     xs.append(x.cpu())
-    y_true.append(batch.y[:batch.batch_size].cpu())
+    y_true.append(batch['v0'].y[:batch_size].cpu())
     print(f"---- test():  i={i}, batch={batch} ----")
     del batch
     if i == len(test_loader)-1:
@@ -69,10 +68,8 @@ def test(model, test_loader, dataset_name):
   y_true = [t.to(device) for t in y_true]
   y_pred = torch.cat(xs, dim=0).argmax(dim=-1, keepdim=True)
   y_true = torch.cat(y_true, dim=0).unsqueeze(-1)
-  test_acc = evaluator.eval({
-    'y_true': y_true,
-    'y_pred': y_pred,
-  })['acc']
+  test_acc = (y_pred == y_true).sum() / y_pred()
+
   return test_acc
 
 def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
@@ -206,7 +203,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   init_params()
 
   model = DistributedDataParallel(model, find_unused_parameters=True) 
-  optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+  optimizer = torch.optim.Adam(model.parameters(), lr=0.004)
   
   print(f"-----------  START TRAINING  ------------- ")
   # Train and test.
@@ -223,6 +220,9 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
       target = batch['v0'].y[:batch_size]
       loss = F.cross_entropy(out, target)
       loss.backward()
+      for name, param in model.named_parameters():
+        if param.grad is None:
+            print(name)
       optimizer.step()
       if i == len(train_loader)-1:
           print(" ---- dist.barrier ----")
@@ -237,15 +237,13 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
 
     # Test accuracy.
     if epoch % 5 == 0: # or epoch > (epochs // 2):
-      test_acc = test(model, test_loader, dataset_name)
+      test_acc = test(model, test_loader)
       f.write(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
       print(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
 
       print("\n\n\n\n\n\n")
       print("********************************************************************************************** ")
       print("\n\n\n\n\n\n")
-      #torch.cuda.synchronize()
-      torch.distributed.barrier()
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(
