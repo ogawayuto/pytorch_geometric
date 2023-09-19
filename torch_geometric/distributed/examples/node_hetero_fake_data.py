@@ -47,26 +47,22 @@ class HeteroGNN(torch.nn.Module):
             x_dict = {key: x.relu() for key, x in x_dict.items()}
         return self.lin(x_dict['v0'])
 
-print("\n\n\n\n\n\n")
 @torch.no_grad()
 def test(model, test_loader):
   model.eval()
-  xs = []
+  y_pred = []
   y_true = []
-  device = torch.device('cpu')
   for i, batch in enumerate(test_loader):
     batch_size = batch['v0'].batch_size
-    x = model(batch.x_dict, batch.edge_index_dict)[:batch_size]
-    xs.append(x.cpu())
+    x = model(batch.x_dict, batch.edge_index_dict).argmax(dim=-1, keepdim=True)[:batch_size]
+    y_pred.append(x.cpu())
     y_true.append(batch['v0'].y[:batch_size].cpu())
     print(f"---- test():  i={i}, batch={batch} ----")
     del batch
     if i == len(test_loader)-1:
         print(" ---- dist.barrier ----")
         torch.distributed.barrier()
-  xs = [t.to(device) for t in xs]
-  y_true = [t.to(device) for t in y_true]
-  y_pred = torch.cat(xs, dim=0).argmax(dim=-1, keepdim=True)
+  y_pred = torch.cat(y_pred, dim=0)
   y_true = torch.cat(y_true, dim=0).unsqueeze(-1)
   test_acc = (y_pred == y_true).sum() / y_pred()
 
