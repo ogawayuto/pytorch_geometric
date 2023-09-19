@@ -54,7 +54,8 @@ def test(model, test_loader):
   y_true = []
   for i, batch in enumerate(test_loader):
     batch_size = batch['v0'].batch_size
-    x = model(batch.x_dict, batch.edge_index_dict).argmax(dim=-1, keepdim=True)[:batch_size]
+    x = model(batch.x_dict, batch.edge_index_dict)
+    x = x.argmax(dim=-1, keepdim=True)[:batch_size]
     y_pred.append(x.cpu())
     y_true.append(batch['v0'].y[:batch_size].cpu())
     print(f"---- test():  i={i}, batch={batch} ----")
@@ -64,9 +65,9 @@ def test(model, test_loader):
         torch.distributed.barrier()
   y_pred = torch.cat(y_pred, dim=0)
   y_true = torch.cat(y_true, dim=0).unsqueeze(-1)
-  test_acc = (y_pred == y_true).sum() / y_pred()
-
-  return test_acc
+  test_acc = int((y_pred == y_true).sum()) / y_pred.size(0)
+  
+  return float(test_acc)
 
 def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
                       num_training_procs_per_node: int, dataset_name: str,
