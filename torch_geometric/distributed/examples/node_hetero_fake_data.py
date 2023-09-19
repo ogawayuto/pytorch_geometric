@@ -56,7 +56,7 @@ def test(model, test_loader, dataset_name):
   y_true = []
   for i, batch in enumerate(test_loader):
     if i == 0:
-      device = batch.x.device
+      device = torch.device('cpu')
     x = model(batch.x, batch.edge_index)[:batch.batch_size]
     xs.append(x.cpu())
     y_true.append(batch.y[:batch.batch_size].cpu())
@@ -104,7 +104,6 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   node_pb_cat = torch.cat(list(node_pb.values()))
   edge_pb_cat = torch.cat(list(edge_pb.values()))
   
-  num_classes = 10
   
   feature.num_partitions = num_partitions
   feature.partition_idx = partition_idx
@@ -117,10 +116,13 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   graph.node_pb = node_pb_cat
   graph.edge_pb = edge_pb_cat
   graph.meta = meta
-  
+  # generate some fake labels if not saved during partition making
+  num_classes = 10
   graph.labels = torch.randint(num_classes, graph.node_pb.size())
 
   partition_data = (feature, graph)
+  
+  # Define model inputs
   
   # generate input node split for each fake partition
   num_v0_nodes = node_pb['v0'].size(0)
@@ -131,11 +133,11 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   input_nodes = input_nodes.split(input_nodes.size(0) // 2)
   train_idx = ('v0', input_nodes[0])
   # train_idx[1].share_memory_()
-  print(train_idx, train_idx[1].size(0))
+  print("train_idx:", train_idx, train_idx[1].size(0))
   
-  # test_idx = ('v0', input_nodes[1])
+  test_idx = ('v0', input_nodes[1])
   # test_idx[1].share_memory_()
-  # print(test_idx, test_idx[1].size(0))
+  print("test_idx:", test_idx, test_idx[1].size(0))
 
   # Initialize graphlearn_torch distributed worker group context.
   current_ctx = DistContext(world_size=num_nodes*num_training_procs_per_node,
@@ -153,15 +155,19 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     world_size=current_ctx.world_size,
     init_method='tcp://{}:{}'.format(master_addr, training_pg_master_port)
   )
-
+  
+  # Critica params
   num_workers=0
   concurrency=2
   batch_size=64
+  num_layers=3
+  num_neighbors=[10]*num_layers
+  async_sampling = False
   
   # Create distributed neighbor loader for training
   train_loader = DistNeighborLoader(
     data=partition_data,
-    num_neighbors=[3, 5],
+    num_neighbors=num_neighbors,
     input_nodes=train_idx,
     batch_size=batch_size,
     shuffle=True,
@@ -170,34 +176,32 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     concurrency=concurrency,
     master_addr=master_addr,
     master_port=train_loader_master_port,
-    async_sampling = False,
-    filter_per_worker = False,
+    async_sampling = async_sampling,
     current_ctx=current_ctx,
     rpc_worker_names=rpc_worker_names,
     disjoint=False
   )
       
   # # Create distributed neighbor loader for testing.
-  # test_loader = DistNeighborLoader(
-  #   data=partition_data,
-  #   num_neighbors=[-1],
-  #   input_nodes=test_idx,
-  #   batch_size=batch_size,
-  #   shuffle=False,
-  #   device=torch.device('cpu'),
-  #   num_workers=num_workers,
-  #   concurrency=concurrency,
-  #   master_addr=master_addr,
-  #   master_port=test_loader_master_port,
-  #   async_sampling = True,
-  #   filter_per_worker = False,
-  #   current_ctx=current_ctx,
-  #   rpc_worker_names=rpc_worker_names,
-  #   disjoint=False
-  # )
+  test_loader = DistNeighborLoader(
+    data=partition_data,
+    num_neighbors=[-1],
+    input_nodes=test_idx,
+    batch_size=batch_size,
+    shuffle=False,
+    device=torch.device('cpu'),
+    num_workers=num_workers,
+    concurrency=concurrency,
+    master_addr=master_addr,
+    master_port=test_loader_master_port,
+    async_sampling = async_sampling,
+    current_ctx=current_ctx,
+    rpc_worker_names=rpc_worker_names,
+    disjoint=False
+  )
 
   model = HeteroGNN(hidden_channels=64, out_channels=num_classes,
-            num_layers=2)
+            num_layers=num_layers)
 
   init_params()
 
@@ -232,16 +236,16 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     print("\n\n\n\n\n\n")
 
     # Test accuracy.
-    # if epoch % 5 == 0: # or epoch > (epochs // 2):
-    #   test_acc = test(model, test_loader, dataset_name)
-    #   f.write(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
-    #   print(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
+    if epoch % 5 == 0: # or epoch > (epochs // 2):
+      test_acc = test(model, test_loader, dataset_name)
+      f.write(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
+      print(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
 
-    #   print("\n\n\n\n\n\n")
-    #   print("********************************************************************************************** ")
-    #   print("\n\n\n\n\n\n")
-    #   #torch.cuda.synchronize()
-    #   torch.distributed.barrier()
+      print("\n\n\n\n\n\n")
+      print("********************************************************************************************** ")
+      print("\n\n\n\n\n\n")
+      #torch.cuda.synchronize()
+      torch.distributed.barrier()
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(
