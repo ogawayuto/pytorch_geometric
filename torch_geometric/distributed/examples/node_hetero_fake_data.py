@@ -111,7 +111,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
   graph.edge_pb = edge_pb_cat
   graph.meta = meta
   # generate some fake labels if not saved during partition making
-  num_classes = 10
+  num_classes = 2
   graph.labels = torch.randint(num_classes, graph.node_pb.size())
 
   partition_data = (feature, graph)
@@ -228,7 +228,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     print("\n***************************************************************\n")
 
     # Test accuracy.
-    if epoch % 5 == 0: # or epoch > (epochs // 2):
+    if epoch % 3 == 0: # or epoch > (epochs // 2):
       test_acc = test(model, test_loader)
       f.write(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
       print(f'-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n')
@@ -289,7 +289,7 @@ if __name__ == '__main__':
   parser.add_argument(
     "--epochs",
     type=int,
-    default=5,
+    default=12,
     help="The number of training epochs.",
   )
   parser.add_argument(
