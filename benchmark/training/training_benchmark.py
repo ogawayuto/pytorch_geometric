@@ -342,11 +342,11 @@ if __name__ == '__main__':
     add('--device', choices=['cpu', 'cuda', 'mps', 'xpu'], default='cpu',
         help='Device to run benchmark on')
     add('--datasets', nargs='+',
-        default=['ogbn-mag'], type=str)
+        default=['ogbn-mag', 'ogbn-products', 'Reddit'], type=str)
     add('--use-sparse-tensor', action='store_true',
         help='use torch_sparse.SparseTensor as graph storage format')
     add('--models', nargs='+',
-        default=['rgcn'], type=str)
+        default=['edge_cnn', 'gat', 'gcn', 'pna', 'rgat', 'rgcn'], type=str)
     add('--root', default='../../data', type=str,
         help='relative path to look for the datasets')
     add('--batch-sizes', nargs='+', default=[512, 1024, 2048, 4096, 8192],
