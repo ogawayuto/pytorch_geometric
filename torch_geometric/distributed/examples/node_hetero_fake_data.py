@@ -231,9 +231,7 @@ def run_training_proc(local_proc_rank: int, num_nodes: int, node_rank: int,
     end = time.time()
     f.write(f'-- [Trainer {current_ctx.rank}] Epoch: {epoch:03d}, Loss: {loss:.4f}, Epoch Time: {end - start}\n')
     print(f'-- [Trainer {current_ctx.rank}] Epoch: {epoch:03d}, Loss: {loss:.4f}, Epoch Time: {end - start}\n')
-    print("\n\n\n\n\n\n")
-    print("********************************************************************************************** ")
-    print("\n\n\n\n\n\n")
+    print("\n****************************************************************************\n")
 
     # Test accuracy.
     if epoch % 5 == 0: # or epoch > (epochs // 2):
