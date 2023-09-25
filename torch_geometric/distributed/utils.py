@@ -61,7 +61,7 @@ class BatchDict:
 def remove_duplicates(
     out: SamplerOutput,
     node: np.array,
-    batch: np.array,
+    batch: Optional[np.array] = None,
     disjoint: bool = False,
 ):
     num_node = len(node)
