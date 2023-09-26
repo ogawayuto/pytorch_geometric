@@ -204,7 +204,10 @@ class NodeLoader(torch.utils.data.DataLoader, AffinityMixin):
                 if edge is not None and 'e_id' not in data[key]:
                     edge = edge.to(torch.long)
                     perm = self.node_sampler.edge_permutation
-                    data[key].e_id = perm[key][edge] if perm is not None else edge
+                    try:
+                        data[key].e_id = perm[key][edge] 
+                    except TypeError:
+                        data[key].e_id = edge
 
             data.set_value_dict('batch', out.batch)
             data.set_value_dict('num_sampled_nodes', out.num_sampled_nodes)
