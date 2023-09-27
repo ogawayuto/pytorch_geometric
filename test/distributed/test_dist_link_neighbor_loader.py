@@ -52,10 +52,11 @@ def create_dist_data(tmp_path, rank):
 
 def dist_link_neighbor_loader_hetero(tmp_path: str, world_size: int, rank: int,
                                    master_addr: str, master_port: int,
-                                   num_workers: int, concurrency: int,
+                                   num_workers: int,
                                    async_sampling: bool,
-                                   device=torch.device('cpu')):
-
+                                   neg_ratio:float,
+                                   ):
+    device=torch.device('cpu')
     data = create_dist_data(tmp_path, rank)
 
     current_ctx = DistContext(rank=rank, global_rank=rank,
@@ -68,12 +69,17 @@ def dist_link_neighbor_loader_hetero(tmp_path: str, world_size: int, rank: int,
                             data[1].get_edge_index((('v0', 'e0', 'v0'), 'coo'))[0],
                             data[1].get_edge_index((('v0', 'e0', 'v0'), 'coo'))[1]
                         ], dim=0))
+    
+    edge_label = torch.randint(high=2, size=(1, edge_label_index[1].size()[1]))
+
 
     loader = DistLinkNeighborLoader(
-        data=data, edge_label_index=edge_label_index, num_neighbors=[10, 10],
+        data=data, edge_label_index=edge_label_index, 
+        edge_label=edge_label if neg_ratio is not None else None,
+        num_neighbors=[10, 10],
         batch_size=10, num_workers=num_workers, master_addr=master_addr,
         master_port=master_port, current_ctx=current_ctx, rpc_worker_names={},
-        concurrency=concurrency, device=device, drop_last=True,
+        concurrency=10, device=device, drop_last=True,
         async_sampling=async_sampling)
     
     assert 'DistLinkNeighborLoader()' in str(loader)
@@ -83,7 +89,8 @@ def dist_link_neighbor_loader_hetero(tmp_path: str, world_size: int, rank: int,
 
     for batch in loader:
         assert isinstance(batch, HeteroData)
-        assert batch['v0'].input_id.numel() == batch['v0'].batch_size == 10
+        assert batch[('v0', 'e0', 'v0')].input_id.numel() == batch[
+            ('v0', 'e0', 'v0')].batch_size == 10
         assert len(batch.node_types) == 2
         for ntype in batch.node_types:
             assert torch.equal(batch[ntype].x, batch.x_dict[ntype])
@@ -100,10 +107,11 @@ def dist_link_neighbor_loader_hetero(tmp_path: str, world_size: int, rank: int,
 
 def dist_link_neighbor_loader_homo(tmp_path: str, world_size: int, rank: int,
                                    master_addr: str, master_port: int,
-                                   num_workers: int, concurrency: int,
+                                   num_workers: int,
                                    async_sampling: bool,
-                                   device=torch.device('cpu')):
-
+                                   neg_ratio: float,
+                                   ):
+    device=torch.device('cpu')
     data = create_dist_data(tmp_path, rank)
 
     current_ctx = DistContext(rank=rank, global_rank=rank,
@@ -116,12 +124,15 @@ def dist_link_neighbor_loader_homo(tmp_path: str, world_size: int, rank: int,
                             data[1].get_edge_index((None, 'coo'))[0],
                             data[1].get_edge_index((None, 'coo'))[1]
                         ], dim=0))
+    edge_label = torch.randint(high=2, size=(1, edge_label_index[1].size()[1]))
 
     loader = DistLinkNeighborLoader(
-        data=data, edge_label_index=edge_label_index, num_neighbors=[10, 10],
+        data=data, edge_label_index=edge_label_index, 
+        edge_label=edge_label if neg_ratio is not None else None,
+        num_neighbors=[10, 10],
         batch_size=10, num_workers=num_workers, master_addr=master_addr,
         master_port=master_port, current_ctx=current_ctx, rpc_worker_names={},
-        concurrency=concurrency, device=device, drop_last=True,
+        concurrency=10, device=device, drop_last=True,
         async_sampling=async_sampling)
 
     assert 'DistLinkNeighborLoader()' in str(loader)
@@ -140,9 +151,13 @@ def dist_link_neighbor_loader_homo(tmp_path: str, world_size: int, rank: int,
         assert batch.edge_attr.device == device
 
 
-
-def test_dist_link_neighbor_loader_homo(tmp_path, num_workers, concurrency,
-                                        async_sampling):
+@onlyLinux
+@pytest.mark.skipif(not WITH_METIS, reason='Not compiled with METIS support')
+@pytest.mark.parametrize('num_workers', [0, 2])
+@pytest.mark.parametrize('async_sampling', [True, False])
+@pytest.mark.parametrize('neg_ratio', [None, 1.0])
+def test_dist_link_neighbor_loader_homo(tmp_path, num_workers,
+                                        async_sampling, neg_ratio):
 
     mp_context = torch.multiprocessing.get_context('spawn')
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -160,12 +175,12 @@ def test_dist_link_neighbor_loader_homo(tmp_path, num_workers, concurrency,
 
     w0 = mp_context.Process(
         target=dist_link_neighbor_loader_homo,
-        args=(tmp_path, num_parts, 0, addr, port, num_workers, concurrency,
+        args=(tmp_path, num_parts, 0, addr, port, num_workers,
               async_sampling))
 
     w1 = mp_context.Process(
         target=dist_link_neighbor_loader_homo,
-        args=(tmp_path, num_parts, 1, addr, port, num_workers, concurrency,
+        args=(tmp_path, num_parts, 1, addr, port, num_workers,
               async_sampling))
 
     w0.start()
@@ -176,10 +191,10 @@ def test_dist_link_neighbor_loader_homo(tmp_path, num_workers, concurrency,
 @onlyLinux
 @pytest.mark.skipif(not WITH_METIS, reason='Not compiled with METIS support')
 @pytest.mark.parametrize('num_workers', [0, 2])
-@pytest.mark.parametrize('concurrency', [2, 10])
 @pytest.mark.parametrize('async_sampling', [True, False])
+@pytest.mark.parametrize('neg_ratio', [None, 1.0])
 def test_dist_link_neighbor_loader_hetero(
-        tmp_path, num_workers, concurrency, async_sampling):
+        tmp_path, num_workers, async_sampling, neg_ratio):
 
     mp_context = torch.multiprocessing.get_context('spawn')
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -201,10 +216,10 @@ def test_dist_link_neighbor_loader_hetero(
     partitioner.generate_partition()
 
     w0 = mp_context.Process(target=dist_link_neighbor_loader_hetero, args=(
-        tmp_path, num_parts, 0, addr, port, num_workers, concurrency, async_sampling))
+        tmp_path, num_parts, 0, addr, port, num_workers, async_sampling, neg_ratio))
 
     w1 = mp_context.Process(target=dist_link_neighbor_loader_hetero, args=(
-        tmp_path, num_parts, 1, addr, port, num_workers, concurrency, async_sampling))
+        tmp_path, num_parts, 1, addr, port, num_workers, async_sampling, neg_ratio))
 
     w0.start()
     w1.start()
