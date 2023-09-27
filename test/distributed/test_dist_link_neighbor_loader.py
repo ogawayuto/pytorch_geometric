@@ -176,12 +176,12 @@ def test_dist_link_neighbor_loader_homo(tmp_path, num_workers,
     w0 = mp_context.Process(
         target=dist_link_neighbor_loader_homo,
         args=(tmp_path, num_parts, 0, addr, port, num_workers,
-              async_sampling))
+              async_sampling, neg_ratio))
 
     w1 = mp_context.Process(
         target=dist_link_neighbor_loader_homo,
         args=(tmp_path, num_parts, 1, addr, port, num_workers,
-              async_sampling))
+              async_sampling, neg_ratio))
 
     w0.start()
     w1.start()
