@@ -70,8 +70,7 @@ def dist_link_neighbor_loader_hetero(tmp_path: str, world_size: int, rank: int,
                             data[1].get_edge_index((('v0', 'e0', 'v0'), 'coo'))[1]
                         ], dim=0))
     
-    edge_label = torch.randint(high=2, size=(1, edge_label_index[1].size()[1]))
-
+    edge_label = torch.randint(high=2, size=(1, edge_label_index[1].size()[1]))[0]
 
     loader = DistLinkNeighborLoader(
         data=data, edge_label_index=edge_label_index, 
@@ -124,7 +123,7 @@ def dist_link_neighbor_loader_homo(tmp_path: str, world_size: int, rank: int,
                             data[1].get_edge_index((None, 'coo'))[0],
                             data[1].get_edge_index((None, 'coo'))[1]
                         ], dim=0))
-    edge_label = torch.randint(high=2, size=(1, edge_label_index[1].size()[1]))
+    edge_label = torch.randint(high=2, size=(1, edge_label_index[1].size()[1]))[0]
 
     loader = DistLinkNeighborLoader(
         data=data, edge_label_index=edge_label_index, 
