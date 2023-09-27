@@ -113,8 +113,7 @@ class DistNeighborSampler:
         self.time_attr = time_attr
         self.csc = True  # always true?
         self.with_edge_attr = self.dist_feature.has_edge_attr()
-
-        self.edge_permutation = None
+        self.edge_permutation = None #! debug
 
     def register_sampler_rpc(self) -> None:
 
@@ -134,7 +133,6 @@ class DistNeighborSampler:
             temporal_strategy=self.temporal_strategy,
             time_attr=self.time_attr,
         )
-
         rpc_sample_callee = RpcSamplingCallee(self._sampler, self.device)
         self.rpc_sample_callee_id = rpc_register(rpc_sample_callee)
 
@@ -549,9 +547,6 @@ class DistNeighborSampler:
                         fut = self.dist_feature.lookup_features(
                             is_node_feat=True, index=output.node[ntype],
                             input_type=ntype)
-                        # print('node fut')
-                        print({max(output.node[ntype])},
-                              {self.dist_feature.node_feat_pb.size()})
                         nfeat = await wrap_torch_future(fut)
                         nfeat = nfeat.to(torch.device('cpu'))
                         nfeats[ntype] = nfeat
@@ -564,10 +559,6 @@ class DistNeighborSampler:
                         fut = self.dist_feature.lookup_features(
                             is_node_feat=False, index=output.edge[etype],
                             input_type=etype)
-                        # print('edge fut')
-                        print(
-                            f'{max(output.edge[etype])}, {self.dist_feature.edge_feat_pb.size()}'
-                        )
                         efeat = await wrap_torch_future(fut)
                         efeat = efeat.to(torch.device('cpu'))
                         efeats[etype] = efeat

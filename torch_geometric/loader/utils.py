@@ -189,9 +189,9 @@ def filter_dist_store(feature_store: FeatureStore, graph_store: GraphStore,
 
     # Construct a new `HeteroData` object:
     data = custom_cls() if custom_cls is not None else HeteroData()
-    nfeats = meta[2]
-    nlabels = meta[3]
-    efeats = meta[4]
+    nfeats = meta[-3]
+    nlabels = meta[-2]
+    efeats = meta[-1]
     # Filter edge storage:
     required_edge_attrs = []
     for attr in graph_store.get_all_edge_attrs():
