@@ -79,9 +79,24 @@ def dist_link_neighbor_loader_hetero(tmp_path: str, world_size: int, rank: int,
     assert 'DistLinkNeighborLoader()' in str(loader)
     assert str(mp.current_process().pid) in str(loader)
     assert isinstance(loader.neighbor_sampler, DistNeighborSampler)
-    
+    assert data[0].meta['is_hetero'] == True
+
     for batch in loader:
         assert isinstance(batch, HeteroData)
+        assert batch['v0'].input_id.numel() == batch['v0'].batch_size == 10
+        assert len(batch.node_types) == 2
+        for ntype in batch.node_types:
+            assert torch.equal(batch[ntype].x, batch.x_dict[ntype])
+            assert batch.x_dict[ntype].device == device
+            assert batch.x_dict[ntype].size(0) >= 0
+            assert batch[ntype].n_id.size() == (batch[ntype].num_nodes, )
+        assert len(batch.edge_types) == 4
+        for etype in batch.edge_types:
+            if batch[etype].edge_index.numel() > 0:
+                assert batch[etype].edge_index.device == device
+                assert batch[etype].edge_attr.device == device
+                assert batch[etype].edge_attr.size(
+                    0) == batch[etype].edge_index.size(1)
 
 def dist_link_neighbor_loader_homo(tmp_path: str, world_size: int, rank: int,
                                    master_addr: str, master_port: int,

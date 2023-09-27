@@ -113,7 +113,6 @@ class DistNeighborSampler:
         self.time_attr = time_attr
         self.csc = True  # always true?
         self.with_edge_attr = self.dist_feature.has_edge_attr()
-        self.edge_permutation = None #! debug
 
     def register_sampler_rpc(self) -> None:
 
@@ -133,6 +132,8 @@ class DistNeighborSampler:
             temporal_strategy=self.temporal_strategy,
             time_attr=self.time_attr,
         )
+        self.edge_permutation = self._sampler.edge_permutation
+        print(self, "edge_perm:", self.edge_permutation)
         rpc_sample_callee = RpcSamplingCallee(self._sampler, self.device)
         self.rpc_sample_callee_id = rpc_register(rpc_sample_callee)
 
