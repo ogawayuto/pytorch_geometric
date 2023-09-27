@@ -70,7 +70,7 @@ def dist_link_neighbor_loader_hetero(tmp_path: str, world_size: int, rank: int,
                         ], dim=0))
 
     loader = DistLinkNeighborLoader(
-        data=data, edge_label_index=('v0','e0','v0'), num_neighbors=[10, 10],
+        data=data, edge_label_index=edge_label_index, num_neighbors=[10, 10],
         batch_size=10, num_workers=num_workers, master_addr=master_addr,
         master_port=master_port, current_ctx=current_ctx, rpc_worker_names={},
         concurrency=concurrency, device=device, drop_last=True,

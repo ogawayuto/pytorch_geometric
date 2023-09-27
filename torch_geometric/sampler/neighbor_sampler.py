@@ -595,6 +595,10 @@ async def edge_sample_async(
                     input_type[0]: src_time,
                     input_type[-1]: dst_time,
                 }
+            if distributed:
+                raise NotImplementedError("Multi-type edge sampling not yet supported in Distributed mode.")
+            else:
+                out = sample_fn(seed_dict, seed_time_dict)
 
         else:  # Only a single node type: Merge both source and destination.
 
@@ -609,8 +613,15 @@ async def edge_sample_async(
                 seed_time_dict = {
                     input_type[0]: torch.cat([src_time, dst_time], dim=0),
                 }
-
-        out = sample_fn(seed_dict, seed_time_dict)
+                
+        if distributed:
+            seed_time = seed_time_dict[input_type[0]] if seed_time_dict else None
+            out = await sample_fn(
+                NodeSamplerInput(input_id, seed_dict[input_type[0]], 
+                                    seed_time, 
+                                    input_type[0]))
+        else:
+            out = sample_fn(seed_dict, seed_time_dict)
 
         # Enhance `out` by label information ##################################
         if disjoint:

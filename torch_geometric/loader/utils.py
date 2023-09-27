@@ -208,10 +208,11 @@ def filter_dist_store(feature_store: FeatureStore, graph_store: GraphStore,
             attr.index = node_dict[attr.group_name]
             required_node_attrs.append(attr)
             data[attr.group_name].num_nodes = attr.index.size(0)
-
-    for attr in required_node_attrs:
-        if nfeats[attr.group_name] is not None:
-            data[attr.group_name][attr.attr_name] = nfeats[attr.group_name]
+            
+    if nfeats:
+        for attr in required_node_attrs:
+            if nfeats[attr.group_name] is not None:
+                data[attr.group_name][attr.attr_name] = nfeats[attr.group_name]
 
     if efeats:
         for attr in required_edge_attrs:
