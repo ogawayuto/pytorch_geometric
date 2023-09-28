@@ -113,10 +113,10 @@ class DistNeighborSampler:
         self.disjoint = disjoint
         self.temporal_strategy = temporal_strategy
         self.time_attr = time_attr
-        self.csc = True  # always true?
         self.with_edge_attr = self.dist_feature.has_edge_attr()
-
-        self.edge_permutation = None
+        
+        self.csc = True  # always true?
+        _, _, self.edge_permutation = self.dist_graph.csc()
 
     def register_sampler_rpc(self) -> None:
         partition2workers = rpc_partition_to_workers(
