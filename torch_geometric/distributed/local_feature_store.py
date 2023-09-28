@@ -59,10 +59,12 @@ class LocalFeatureStore(FeatureStore):
         # for partition/rpc info related to distributed features
         self.num_partitions: int = 1
         self.partition_idx: int = 0
-        self.node_feat_pb: Union[Tensor, Dict[NodeType, Tensor], Dict[EdgeType,
-                                                                      Tensor]]
-        self.edge_feat_pb: Optional[Union[Tensor,
-                                          Dict[NodeType, Tensor], Dict[EdgeType, Tensor]]]
+        # Mapping between node ID and partition ID
+        self.node_feat_pb: Union[Tensor, Dict[NodeType, Tensor]]
+        # Mapping between edge ID and partition ID
+        self.edge_feat_pb: Union[Tensor, Dict[EdgeType, Tensor]]
+        # Node labels
+        self.labels: Optional[Tensor] = None
         self.local_only: bool = False
         self.rpc_router: Optional[RPCRouter] = None
         self.meta: Optional[Dict] = None
