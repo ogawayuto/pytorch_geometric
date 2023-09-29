@@ -1,9 +1,5 @@
-from torch_geometric.distributed.dist_context import DistContext, DistRole
+from torch_geometric.distributed.dist_context import DistContext
 from torch_geometric.distributed.partition import load_partition_info
-
-import json
-from torch_geometric.testing import get_random_edge_index
-
 
 import argparse
 import os.path as osp
@@ -57,15 +53,13 @@ print("\n\n\n\n\n\n")
 
 
 @torch.no_grad()
-def test(model, test_loader, dataset_name):
+def test(model, test_loader):
     evaluator = Evaluator(name="ogbn-mag")
     model.eval()
     xs = []
     y_true = []
     for i, batch in enumerate(test_loader):
-        if i == 0:
-            device = batch.x.device
-        x = model(batch.x, batch.edge_index)[: batch.batch_size]
+        x = model(batch.x_dict, batch.edge_index_dict)[: batch.batch_size]
         xs.append(x.cpu())
         y_true.append(batch.y[: batch.batch_size].cpu())
         print(f"---- test():  i={i}, batch={batch} ----")
@@ -73,8 +67,6 @@ def test(model, test_loader, dataset_name):
         if i == len(test_loader) - 1:
             print(" ---- dist.barrier ----")
             torch.distributed.barrier()
-    xs = [t.to(device) for t in xs]
-    y_true = [t.to(device) for t in y_true]
     y_pred = torch.cat(xs, dim=0).argmax(dim=-1, keepdim=True)
     y_true = torch.cat(y_true, dim=0).unsqueeze(-1)
     test_acc = evaluator.eval(
@@ -108,9 +100,6 @@ def run_training_proc(
     graph = LocalGraphStore.from_partition(
         osp.join(root_dir, f"{dataset_name}-partitions"), node_rank
     )
-    print(f"-------- graph={graph} ")
-    edge_attrs = graph.get_all_edge_attrs()
-    print(f"------- edge_attrs ={edge_attrs}")
     feature = LocalFeatureStore.from_partition(
         osp.join(root_dir, f"{dataset_name}-partitions"), node_rank
     )
@@ -123,9 +112,7 @@ def run_training_proc(
     ) = load_partition_info(
         osp.join(root_dir, f"{dataset_name}-partitions"), node_rank
     )
-    print(
-        f"-------- meta={meta}, partition_idx={partition_idx}, node_pb={node_pb} "
-    )
+    print(f"-------- meta={meta}, partition_idx={partition_idx}")
 
     node_pb = torch.cat(list(node_pb.values()))
     edge_pb = torch.cat(list(edge_pb.values()))
@@ -160,8 +147,6 @@ def run_training_proc(
         global_rank=node_rank * num_training_procs_per_node + local_proc_rank,
         group_name="distributed-sage-supervised-trainer",
     )
-    current_device = torch.device("cpu")
-    rpc_worker_names = {}
 
     # Initialize training process group of PyTorch.
     torch.distributed.init_process_group(
@@ -171,6 +156,16 @@ def run_training_proc(
         init_method="tcp://{}:{}".format(master_addr, training_pg_master_port),
     )
 
+    # Basic params
+    current_device = torch.device("cpu")
+    rpc_worker_names = {}
+    num_workers = 0
+    concurrency = 2
+    batch_size = 512
+    num_layers = 3
+    num_neighbors = [10] * num_layers
+    async_sampling = False
+
     # Create distributed neighbor loader for training
     train_idx = (
         "paper",
@@ -179,22 +174,18 @@ def run_training_proc(
         ],
     )
 
-    num_workers = 0
-    concurrency = 1
-    batch_size = 100
-
     train_loader = DistNeighborLoader(
         data=partition_data,
-        num_neighbors=[15, 10, 5],
+        num_neighbors=num_neighbors,
         input_nodes=train_idx,
         batch_size=batch_size,
         shuffle=True,
-        device=torch.device("cpu"),
+        device=current_device,
         num_workers=num_workers,
         concurrency=concurrency,
         master_addr=master_addr,
         master_port=train_loader_master_port,
-        async_sampling=False,
+        async_sampling=async_sampling,
         filter_per_worker=False,
         current_ctx=current_ctx,
         rpc_worker_names=rpc_worker_names,
@@ -208,7 +199,6 @@ def run_training_proc(
         batch = batch.to(torch.device("cpu"), "edge_index")
         model(batch.x_dict, batch.edge_index_dict)
 
-    print(f"----------- 333 ------------- ")
     # Create distributed neighbor loader for testing.
     test_idx = (
         "paper",
@@ -218,43 +208,43 @@ def run_training_proc(
     )
     test_loader = DistNeighborLoader(
         data=partition_data,
-        num_neighbors=[15, 10, 5],
-        input_nodes=test_idx,
+        num_neighbors=[-1],
+        input_nodes=train_idx,
         batch_size=batch_size,
         shuffle=False,
-        device=torch.device("cpu"),
+        device=current_device,
         num_workers=num_workers,
         concurrency=concurrency,
         master_addr=master_addr,
-        master_port=test_loader_master_port,
-        async_sampling=False,
+        master_port=train_loader_master_port,
+        async_sampling=async_sampling,
         filter_per_worker=False,
         current_ctx=current_ctx,
         rpc_worker_names=rpc_worker_names,
         disjoint=False,
     )
-
     # Define model and optimizer.
-    # torch.cuda.set_device(current_device)
-    node_types = ["paper"]
-    edge_types = [("paper", "cites", "paper")]
-    print(edge_types)
-    # metadata=(node_types, edge_types)
-    # model = GraphSAGE(
-    #   in_channels=128,
-    #   hidden_channels=256,
-    #   num_layers=1,
-    #   out_channels=349,
-    # ).to(current_device)
+    node_types = ["paper", "author"]
+    edge_types = [
+        ("paper", "cites", "paper"),
+        ("paper", "written_by", "author"),
+        ("author", "writes", "paper"),
+    ]
+    metadata = (node_types, edge_types)
 
-    # model=to_hetero(model, metadata)
-    model = HeteroGNN(hidden_channels=64, out_channels=8, num_layers=3)
+    model = GraphSAGE(
+        in_channels=128,
+        hidden_channels=256,
+        num_layers=num_layers,
+        out_channels=349,
+    ).to(current_device)
+
+    model = to_hetero(model, metadata)
+    # model = HeteroGNN(hidden_channels=64, out_channels=8, num_layers=3)
 
     init_params()
 
-    model = DistributedDataParallel(
-        model
-    )  # , device_ids=[current_device.index])
+    model = DistributedDataParallel(model) 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
     print(f"----------- 444 ------------- ")
@@ -426,15 +416,6 @@ if __name__ == "__main__":
         osp.dirname(osp.realpath(__file__)), args.dataset_root_dir
     )
     data_pidx = args.node_rank % args.num_dataset_partitions
-    r"""
-  dataset = pyg_dist.DistDataset()
-  dataset.load(
-    root_dir=osp.join(root_dir, f'{args.dataset}-partitions'),
-    partition_idx=data_pidx,
-    node_label_file=osp.join(root_dir, f'{args.dataset}-label', 'label.pt'),
-    partition_format="pyg"
-  )
-  """
     node_label_file = osp.join(root_dir, f"{args.dataset}-label", "label.pt")
 
     train_idx = torch.load(

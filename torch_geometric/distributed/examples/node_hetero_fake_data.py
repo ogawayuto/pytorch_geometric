@@ -1,29 +1,21 @@
-from torch_geometric.distributed.dist_context import DistContext, DistRole
+from torch_geometric.distributed.dist_context import DistContext
 from torch_geometric.distributed.partition import load_partition_info
 
-import json
-from torch_geometric.testing import get_random_edge_index
-
-
 import argparse
-import os.path as osp
 import time
 
 import torch
 import torch.distributed
 import torch.nn.functional as F
 
-from ogb.nodeproppred import Evaluator
 from torch.nn.parallel import DistributedDataParallel
-from benchmark.utils.hetero_sage import HeteroGraphSAGE
-from torch_geometric.nn import GraphSAGE, to_hetero
 
 from torch_geometric.distributed import (
     LocalFeatureStore,
     LocalGraphStore,
     DistNeighborLoader,
 )
-from torch_geometric.nn import HeteroConv, GCNConv, SAGEConv, GATConv, Linear
+from torch_geometric.nn import HeteroConv, SAGEConv, Linear
 
 
 class HeteroGNN(torch.nn.Module):
@@ -161,8 +153,6 @@ def run_training_proc(
         global_rank=node_rank * num_training_procs_per_node + local_proc_rank,
         group_name="distributed-sage-supervised-trainer",
     )
-    current_device = torch.device("cpu")
-    rpc_worker_names = {}
 
     # Initialize training process group of PyTorch.
     torch.distributed.init_process_group(
@@ -172,7 +162,9 @@ def run_training_proc(
         init_method="tcp://{}:{}".format(master_addr, training_pg_master_port),
     )
 
-    # Critica params
+    # Basic params
+    current_device = torch.device("cpu")
+    rpc_worker_names = {}
     num_workers = 0
     concurrency = 2
     batch_size = 64
