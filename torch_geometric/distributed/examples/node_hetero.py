@@ -59,9 +59,10 @@ def test(model, test_loader):
     xs = []
     y_true = []
     for i, batch in enumerate(test_loader):
-        x = model(batch.x_dict, batch.edge_index_dict)[: batch.batch_size]
+        batch_size=batch["paper"].batch_size
+        x = model(batch.x_dict, batch.edge_index_dict)[:batch_size]
         xs.append(x.cpu())
-        y_true.append(batch.y[: batch.batch_size].cpu())
+        y_true.append(batch["paper"].y[:batch_size].cpu())
         print(f"---- test():  i={i}, batch={batch} ----")
         del batch
         if i == len(test_loader) - 1:
@@ -126,16 +127,7 @@ def run_training_proc(
     feature.num_partitions = num_partitions
     feature.partition_idx = partition_idx
     feature.meta = meta
-
-    if node_label_file is not None:
-        if isinstance(node_label_file, dict):
-            whole_node_labels = {}
-            for ntype, file in node_label_file.items():
-                whole_node_labels[ntype] = torch.load(file)
-        else:
-            whole_node_labels = torch.load(node_label_file)
-    node_labels = whole_node_labels
-    feature.labels = node_labels
+    feature.labels = torch.load(node_label_file)
 
     partition_data = (feature, graph)
 
@@ -163,6 +155,7 @@ def run_training_proc(
     concurrency = 2
     batch_size = 512
     num_layers = 3
+    num_classes = 349
     num_neighbors = [10] * num_layers
     async_sampling = False
 
@@ -236,7 +229,7 @@ def run_training_proc(
         in_channels=128,
         hidden_channels=256,
         num_layers=num_layers,
-        out_channels=349,
+        out_channels=num_classes,
     ).to(current_device)
 
     model = to_hetero(model, metadata)
@@ -296,7 +289,6 @@ def run_training_proc(
                 "********************************************************************************************** "
             )
             print("\n\n\n\n\n\n")
-            # torch.cuda.synchronize()
             torch.distributed.barrier()
 
     print(f"----------- 555 ------------- ")
