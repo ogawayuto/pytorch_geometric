@@ -127,6 +127,8 @@ def run_training_proc(
     feature.num_partitions = num_partitions
     feature.partition_idx = partition_idx
     feature.meta = meta
+    feature.node_feat_pb = node_pb
+    feature.edge_feat_pb = edge_pb
     feature.labels = torch.load(node_label_file)
 
     partition_data = (feature, graph)
