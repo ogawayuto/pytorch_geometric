@@ -182,7 +182,8 @@ def filter_dist_store(feature_store: FeatureStore, graph_store: GraphStore,
                       col_dict: Dict[str, Tensor], edge_dict: Dict[str,
                                                                    OptTensor],
                       custom_cls: Optional[HeteroData] = None,
-                      meta: Optional[Dict[str, Tensor]] = None) -> HeteroData:
+                      meta: Optional[Dict[str, Tensor]] = None,
+                      input_type: 'str') -> HeteroData:
     r"""Constructs a `HeteroData` object from a feature store that only holds
     nodes in `node` end edges in `edge` for each node and edge type,
     respectively. Sorted attribute values are proved as metadata from DistNeighborSampler."""
@@ -218,9 +219,8 @@ def filter_dist_store(feature_store: FeatureStore, graph_store: GraphStore,
         for attr in required_edge_attrs:
             if efeats[attr.edge_type] is not None:
                 data[attr.edge_type].edge_attr = efeats[attr.edge_type]
-
-    for label in nlabels:
-        data[label].y = nlabels
+    if nlabels:
+        data[input_type].y = nlabels
 
     return data
 
