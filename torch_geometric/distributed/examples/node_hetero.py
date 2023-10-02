@@ -253,7 +253,7 @@ def run_training_proc(
             optimizer.zero_grad()
             out = model(batch.x_dict, batch.edge_index_dict)
             batch_size = batch["paper"].batch_size
-            out = out[:batch_size]
+            out = out['paper'][:batch_size]
             target = batch["paper"].y[:batch_size]
             loss = F.nll_loss(out, target)
             loss.backward()
