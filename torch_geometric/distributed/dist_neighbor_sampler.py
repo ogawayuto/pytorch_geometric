@@ -230,6 +230,7 @@ class DistNeighborSampler:
         """
 
         input_type = inputs.input_type
+        self.input_type = input_type
         batch_size = inputs.input_id.size()[0]
 
         seed_dict = None
@@ -672,7 +673,6 @@ class DistNeighborSampler:
         r"""Collect labels and features for the sampled subgrarph if necessary,
         and put them into a sample message.
         """
-        input_type = output.metadata[0].keys()
         if self.is_hetero:
             nlabels = {}
             nfeats = {}
