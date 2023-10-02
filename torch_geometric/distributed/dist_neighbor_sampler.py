@@ -115,7 +115,6 @@ class DistNeighborSampler:
         self.temporal_strategy = temporal_strategy
         self.time_attr = time_attr
         self.with_edge_attr = self.dist_feature.has_edge_attr()
-        self.input_type = None
         
         self.csc = True  # always true?
         _, _, self.edge_permutation = self.dist_graph.csc()
@@ -673,6 +672,7 @@ class DistNeighborSampler:
         r"""Collect labels and features for the sampled subgrarph if necessary,
         and put them into a sample message.
         """
+        input_type = output.metadata[0].keys()
         if self.is_hetero:
             nlabels = {}
             nfeats = {}

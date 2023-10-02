@@ -116,7 +116,6 @@ class DistLoader:
                      rpc_timeout=self.rpc_timeout)
             self.neighbor_sampler.register_sampler_rpc()
             self.neighbor_sampler.init_event_loop()
-            self.neighbor_sampler.input_type = self.input_data.input_type
             # close rpc & worker group at exit
             atexit.register(close_sampler, worker_id, self.neighbor_sampler)
             # wait for all workers to init
