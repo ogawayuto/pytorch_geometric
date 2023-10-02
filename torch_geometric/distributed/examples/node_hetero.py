@@ -13,7 +13,6 @@ from ogb.nodeproppred import Evaluator
 from torch.nn.parallel import DistributedDataParallel
 from benchmark.utils.hetero_sage import HeteroGraphSAGE
 from torch_geometric.nn import GraphSAGE, to_hetero
-from torch_geometric.sampler.base import SubgraphType
 
 from torch_geometric.distributed import (
     LocalFeatureStore,
@@ -185,15 +184,14 @@ def run_training_proc(
         filter_per_worker=False,
         current_ctx=current_ctx,
         rpc_worker_names=rpc_worker_names,
-        disjoint=False,
-        subgraph_type=SubgraphType.bidirectional,
+        disjoint=False
     )
 
     @torch.no_grad()
     def init_params():
         # Initialize lazy parameters via forwarding a single batch to the model:
         batch = next(iter(train_loader))
-        batch = batch.to(torch.device("cpu"), "edge_index")
+        #batch = batch.to(torch.device("cpu"), "edge_index")
         model(batch.x_dict, batch.edge_index_dict)
 
     # Create distributed neighbor loader for testing.
@@ -224,7 +222,7 @@ def run_training_proc(
     node_types = ["paper", "author"]
     edge_types = [
         ("paper", "cites", "paper"),
-        ("paper", "written_by", "author"),
+        ("paper", "rev_writes", "author"),
         ("author", "writes", "paper"),
     ]
     metadata = (node_types, edge_types)

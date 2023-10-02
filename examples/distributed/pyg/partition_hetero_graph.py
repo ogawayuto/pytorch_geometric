@@ -6,7 +6,7 @@ import torch
 
 from torch_geometric.datasets import OGB_MAG
 from torch_geometric.distributed import Partitioner
-
+import torch_geometric.transforms as T
 
 def partition_dataset(
     ogbn_dataset: str,
@@ -15,16 +15,16 @@ def partition_dataset(
     recursive: bool = False,
 ):
     save_dir = osp.join(root_dir, f'{ogbn_dataset}-partitions')
-    dataset = OGB_MAG(root=ogbn_dataset, preprocess='metapath2vec')
+    dataset = OGB_MAG(root=ogbn_dataset, preprocess='metapath2vec', transform=T.ToUndirected(merge=True))
     data = dataset[0]
 
-    # partitioner = Partitioner(data, num_parts, save_dir, recursive)
-    # partitioner.generate_partition()
+    partitioner = Partitioner(data, num_parts, save_dir, recursive)
+    partitioner.generate_partition()
 
-    # print('-- Saving label ...')
-    # label_dir = osp.join(root_dir, f'{ogbn_dataset}-label')
-    # os.makedirs(label_dir, exist_ok=True)
-    # torch.save(data['paper'].y.squeeze(), osp.join(label_dir, 'label.pt'))
+    print('-- Saving label ...')
+    label_dir = osp.join(root_dir, f'{ogbn_dataset}-label')
+    os.makedirs(label_dir, exist_ok=True)
+    torch.save(data['paper'].y.squeeze(), osp.join(label_dir, 'label.pt'))
 
     print('-- Partitioning training indices ...')
     train_idx = data['paper'].train_mask.nonzero().view(-1)
@@ -46,7 +46,7 @@ def partition_dataset(
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='ogbn-mag')
-    parser.add_argument('--root_dir', type=str, default='./data/mag')
+    parser.add_argument('--root_dir', type=str, default='./data/ogbn-mag')
     parser.add_argument('--num_partitions', type=int, default=2)
     parser.add_argument('--recursive', type=bool, default=False)
     args = parser.parse_args()
