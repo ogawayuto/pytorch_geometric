@@ -220,7 +220,7 @@ def filter_dist_store(feature_store: FeatureStore, graph_store: GraphStore,
                 data[attr.edge_type].edge_attr = efeats[attr.edge_type]
 
     for label in nlabels:
-        data[label].y = nlabels[label]
+        data[label].y = nlabels
 
     return data
 
