@@ -13,6 +13,7 @@ from ogb.nodeproppred import Evaluator
 from torch.nn.parallel import DistributedDataParallel
 from benchmark.utils.hetero_sage import HeteroGraphSAGE
 from torch_geometric.nn import GraphSAGE, to_hetero
+from torch_geometric.sampler.base import SubgraphType
 
 from torch_geometric.distributed import (
     LocalFeatureStore,
@@ -185,6 +186,7 @@ def run_training_proc(
         current_ctx=current_ctx,
         rpc_worker_names=rpc_worker_names,
         disjoint=False,
+        subgraph_type=SubgraphType.bidirectional,
     )
 
     @torch.no_grad()
