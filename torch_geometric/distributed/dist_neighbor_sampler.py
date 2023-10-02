@@ -681,6 +681,8 @@ class DistNeighborSampler:
             node_labels = self.dist_feature.labels
             if node_labels is not None:
                 nlabels = node_labels[output.node[self.input_type]]
+            else:
+                nlabels = None
             # Collect node features.
             if output.node is not None:
                 for ntype in output.node.keys():
