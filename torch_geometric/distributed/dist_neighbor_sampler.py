@@ -1,7 +1,5 @@
 import itertools
 import logging
-from typing import Dict, List, Optional, Tuple, Union
-
 import numpy as np
 import torch
 import torch.multiprocessing as mp
@@ -38,11 +36,14 @@ from torch_geometric.sampler import (
 from torch_geometric.sampler.base import NumNeighbors, SubgraphType
 from torch_geometric.sampler.utils import remap_keys
 from torch_geometric.typing import (
+    Optional, 
+    Tuple,
+    Union,
     Dict,
+    List,
     EdgeType,
     NodeType,
     NumNeighbors,
-    Tuple,
 )
 
 
@@ -114,6 +115,7 @@ class DistNeighborSampler:
         self.temporal_strategy = temporal_strategy
         self.time_attr = time_attr
         self.with_edge_attr = self.dist_feature.has_edge_attr()
+        self.input_type = None
         
         self.csc = True  # always true?
         _, _, self.edge_permutation = self.dist_graph.csc()
@@ -678,11 +680,7 @@ class DistNeighborSampler:
             # Collect node labels of input node type.
             node_labels = self.dist_feature.labels
             if node_labels is not None:
-                if isinstance(node_labels, Dict): 
-                    for ntype in output.node.keys():
-                        nlabels[ntype] = node_labels[output.node[ntype]]
-                else:
-                    nlabels = node_labels[output.node]
+                nlabels = node_labels[output.node[self.input_type]]
             # Collect node features.
             if output.node is not None:
                 for ntype in output.node.keys():
