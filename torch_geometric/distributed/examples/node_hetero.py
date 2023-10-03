@@ -160,10 +160,12 @@ def run_training_proc(
     @torch.no_grad()
     def init_params():
         # Initialize lazy parameters via forwarding a single batch to the model:
-        batch = next(iter(train_loader))
-        batch = batch.to(torch.device("cpu"))
-        model(batch.x_dict, batch.edge_index_dict)
-        del batch
+        for batch in train_loader: # for-loop keeps loader RPC alive
+            batch = batch.to(torch.device("cpu"))
+            model(batch.x_dict, batch.edge_index_dict)
+            del batch
+            global_barrier()
+            break
         
     # Create distributed neighbor loader for testing.
     test_idx = (
