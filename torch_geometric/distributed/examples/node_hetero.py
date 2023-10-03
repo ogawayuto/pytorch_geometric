@@ -153,9 +153,9 @@ def run_training_proc(
     # Basic params
     current_device = torch.device("cpu")
     rpc_worker_names = {}
-    num_workers = 0
-    concurrency = 2
-    batch_size = 512
+    num_workers = 4
+    concurrency = 10
+    batch_size = 1024
     num_layers = 3
     num_classes = 349
     num_neighbors = [10] * num_layers
@@ -191,7 +191,7 @@ def run_training_proc(
     def init_params():
         # Initialize lazy parameters via forwarding a single batch to the model:
         batch = next(iter(train_loader))
-        #batch = batch.to(torch.device("cpu"), "edge_index")
+        batch = batch.to(torch.device("cpu"), "edge_index")
         model(batch.x_dict, batch.edge_index_dict)
 
     # Create distributed neighbor loader for testing.
@@ -239,8 +239,8 @@ def run_training_proc(
 
     init_params()
 
-    model = DistributedDataParallel(model) 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    model = DistributedDataParallel(model, find_unused_parameters=True) 
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.04)
 
     print(f"----------- 444 ------------- ")
     # Train and test.
@@ -255,7 +255,7 @@ def run_training_proc(
             batch_size = batch["paper"].batch_size
             out = out['paper'][:batch_size]
             target = batch["paper"].y[:batch_size]
-            loss = F.nll_loss(out, target)
+            loss = F.cross_entropy(out, target)
             loss.backward()
             optimizer.step()
             if i == len(train_loader) - 1:
