@@ -204,7 +204,6 @@ def run_training_proc(
     ).to(current_device)
 
     model = to_hetero(model, metadata)
-    # model = HeteroGNN(hidden_channels=64, out_channels=8, num_layers=3)
     print(f"----------- init_params() ------------- ")
     init_params()
 
@@ -239,15 +238,12 @@ def run_training_proc(
             f"-- [Trainer {current_ctx.rank}] Epoch: {epoch:03d}, Loss: {loss:.4f}, Epoch Time: {end - start}\n"
         )
         print("\n\n\n\n\n\n")
-        print(
-            "********************************************************************************************** "
-        )
+        print("************************************************************")
         print("\n\n\n\n\n\n")
 
         # Test accuracy.
-        # if epoch == 0 or epoch > (epochs // 2):
-        if epoch % 5 == 0:  # or epoch > (epochs // 2):
-            test_acc = test(model, test_loader, dataset_name)
+        if epoch % 5 == 0:
+            test_acc = test(model, test_loader)
             f.write(
                 f"-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n"
             )
