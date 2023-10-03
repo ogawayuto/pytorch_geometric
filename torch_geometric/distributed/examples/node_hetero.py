@@ -19,7 +19,7 @@ from torch_geometric.distributed import (
     LocalGraphStore,
     DistNeighborLoader,
 )
-from torch_geometric.nn import HeteroConv, GCNConv, SAGEConv, GATConv, Linear
+from torch_geometric.distributed.rpc import global_barrier
 
 @torch.no_grad()
 def test(model, test_loader):
@@ -163,7 +163,6 @@ def run_training_proc(
         batch = next(iter(train_loader))
         batch = batch.to(torch.device("cpu"))
         model(batch.x_dict, batch.edge_index_dict)
-        del batch
         
     # Create distributed neighbor loader for testing.
     test_idx = (
@@ -210,8 +209,8 @@ def run_training_proc(
     model = to_hetero(model, metadata)
     print(f"----------- init_params() ------------- ")
     init_params()
-    torch.distributed.barrier()
-    
+    global_barrier()
+        
     model = DistributedDataParallel(model, find_unused_parameters=True) 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.04)
 
