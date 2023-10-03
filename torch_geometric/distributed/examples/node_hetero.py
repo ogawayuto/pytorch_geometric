@@ -166,6 +166,7 @@ def run_training_proc(
         for batch in train_loader:
             batch = batch.to(torch.device("cpu"))
             model(batch.x_dict, batch.edge_index_dict)
+            train_loader.keep_alive(60)
             del batch
             break
         
