@@ -18,9 +18,6 @@ from torch_geometric.nn import GraphSAGE
 
 from torch_geometric.distributed import LocalFeatureStore, LocalGraphStore
 
-print("\n\n\n\n\n\n")
-
-
 @torch.no_grad()
 def test(model, test_loader, dataset_name):
     evaluator = Evaluator(name=dataset_name)
@@ -104,17 +101,8 @@ def run_training_proc(
     feature.node_feat_pb = node_pb
     feature.edge_feat_pb = edge_pb
     feature.meta = meta
-
-    if node_label_file is not None:
-        if isinstance(node_label_file, dict):
-            whole_node_labels = {}
-            for ntype, file in node_label_file.items():
-                whole_node_labels[ntype] = torch.load(file)
-        else:
-            whole_node_labels = torch.load(node_label_file)
-    node_labels = whole_node_labels
-    feature.labels = node_labels
-
+    feature.labels = torch.load(node_label_file)
+    
     partition_data = (feature, graph)
 
     # Initialize graphlearn_torch distributed worker group context.
@@ -167,7 +155,6 @@ def run_training_proc(
 
     test_loader = pyg_dist.DistNeighborLoader(
         data=partition_data,
-        # data=dataset,
         num_neighbors=[-1],
         input_nodes=test_idx,
         batch_size=4096,

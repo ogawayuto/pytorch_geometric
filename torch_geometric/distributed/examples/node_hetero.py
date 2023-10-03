@@ -129,7 +129,7 @@ def run_training_proc(
     num_layers = 3
     num_classes = 349
     num_neighbors = [15, 10, 5]
-    async_sampling = False
+    async_sampling = False # Hotfix: due to init_params() and loader RPC connection failures Hetero can only be processed in sync manner now
 
     # Create distributed neighbor loader for training
     train_idx = (
