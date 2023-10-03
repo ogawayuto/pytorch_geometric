@@ -129,6 +129,7 @@ class DistLoader:
             
     def keep_alive(self, time) -> None:
         sleep(time)
+        return False
         
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()-PID{self.pid}"
