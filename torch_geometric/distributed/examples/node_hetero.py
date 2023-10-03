@@ -161,9 +161,10 @@ def run_training_proc(
     def init_params():
         # Initialize lazy parameters via forwarding a single batch to the model:
         batch = next(iter(train_loader))
-        batch = batch.to(torch.device("cpu"), "edge_index")
+        batch = batch.to(torch.device("cpu"))
         model(batch.x_dict, batch.edge_index_dict)
-
+        del batch
+        
     # Create distributed neighbor loader for testing.
     test_idx = (
         "paper",
@@ -191,13 +192,11 @@ def run_training_proc(
     # Define model and optimizer.
     # node_types = meta['node_types']
     # edge_types = [tuple(e) for e in meta['edge_types']]
-    node_types = ["paper", "author", "field_of_study"]
+    node_types = ["paper", "author"]
     edge_types = [
         ("paper", "cites", "paper"),
         ("paper", "rev_writes", "author"),
-        ("author", "writes", "paper"),
-        ('paper', 'has_topic', 'field_of_study'),
-        ('field_of_study', 'rev_has_topic', 'paper')
+        ("author", "writes", "paper")
     ]
     metadata = (node_types, edge_types)
 
@@ -211,8 +210,9 @@ def run_training_proc(
     model = to_hetero(model, metadata)
     print(f"----------- init_params() ------------- ")
     init_params()
-
-    model = DistributedDataParallel(model, find_unused_parameters=False) 
+    torch.distributed.barrier()
+    
+    model = DistributedDataParallel(model, find_unused_parameters=True) 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.04)
 
     print(f"----------- train() ------------- ")
