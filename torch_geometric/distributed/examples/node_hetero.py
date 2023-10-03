@@ -129,7 +129,7 @@ def run_training_proc(
     num_layers = 3
     num_classes = 349
     num_neighbors = [15, 10, 5]
-    async_sampling = True
+    async_sampling = False
 
     # Create distributed neighbor loader for training
     train_idx = (
@@ -159,16 +159,10 @@ def run_training_proc(
 
     @torch.no_grad()
     def init_params():
-        # Initialize lazy parameters via forwarding a single batch to the model.
-        # For-loop keeps loader RPC alive, for big batches or multiple workers
-        # with async_sampling = True one loader may exit pre-maturely leading to 
-        # RPC connection errors
-        for batch in train_loader:
-            batch = batch.to(torch.device("cpu"))
-            model(batch.x_dict, batch.edge_index_dict)
-            train_loader.keep_alive(60)
-            del batch
-            break
+        # Initialize lazy parameters via forwarding a single batch to the model:
+        batch = next(iter(train_loader))
+        batch = batch.to(torch.device("cpu"))
+        model(batch.x_dict, batch.edge_index_dict)
         
     # Create distributed neighbor loader for testing.
     test_idx = (
