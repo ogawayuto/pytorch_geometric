@@ -125,11 +125,11 @@ def run_training_proc(
     rpc_worker_names = {}
     num_workers = 4
     concurrency = 10
-    batch_size = 1024
+    batch_size = 512
     num_layers = 3
     num_classes = 349
     num_neighbors = [15, 10, 5]
-    async_sampling = True
+    async_sampling = False
 
     # Create distributed neighbor loader for training
     train_idx = (
@@ -161,6 +161,7 @@ def run_training_proc(
     def init_params():
         # Initialize lazy parameters via forwarding a single batch to the model:
         batch = next(iter(train_loader))
+        global_barrier(timeout=10)
         batch = batch.to(torch.device("cpu"))
         model(batch.x_dict, batch.edge_index_dict)
         
@@ -209,7 +210,6 @@ def run_training_proc(
     model = to_hetero(model, metadata)
     print(f"----------- init_params() ------------- ")
     init_params()
-    global_barrier()
         
     model = DistributedDataParallel(model, find_unused_parameters=True) 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.04)
