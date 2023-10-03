@@ -126,10 +126,6 @@ class DistLoader:
             raise RuntimeError(
                 f"init_fn() defined in {self} didn't initialize the worker_loop of {self.neighbor_sampler}"
             )
-            
-    def keep_alive(self, time) -> None:
-        sleep(time)
-        return False
-        
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()-PID{self.pid}"
