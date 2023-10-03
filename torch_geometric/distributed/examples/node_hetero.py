@@ -163,6 +163,7 @@ def run_training_proc(
         batch = next(iter(train_loader))
         batch = batch.to(torch.device("cpu"))
         model(batch.x_dict, batch.edge_index_dict)
+        del batch
         
     # Create distributed neighbor loader for testing.
     test_idx = (
