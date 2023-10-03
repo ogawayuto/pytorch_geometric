@@ -230,7 +230,7 @@ def run_training_proc(
             loss = F.cross_entropy(out, target)
             loss.backward()
             optimizer.step()
-            print(f"x2_worker: batch={batch}, cnt={i}, time={time.time() - batch_time}")
+            print(f"x2_worker: batch={batch}, cnt={i}, loss={loss}, time={time.time() - batch_time}")
             if i == len(train_loader) - 1:
                 print(" ---- dist.barrier ----")
                 torch.distributed.barrier()
