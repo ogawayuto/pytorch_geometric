@@ -30,6 +30,7 @@ def test(model, test_loader):
     for i, batch in enumerate(test_loader):
         batch_size=batch["paper"].batch_size
         x = model(batch.x_dict, batch.edge_index_dict)[:batch_size]
+        x = x.softmax(dim=1)
         xs.append(x.cpu())
         y_true.append(batch["paper"].y[:batch_size].cpu())
         print(f"---- test():  i={i}, batch={batch} ----")
@@ -188,14 +189,14 @@ def run_training_proc(
         disjoint=False,
     )
     # Define model and optimizer.
-    node_types = meta['node_types']
-    edge_types = [tuple(e) for e in meta['edge_types']]
-    # node_types = ["paper", "author"]
-    # edge_types = [
-    #     ("paper", "cites", "paper"),
-    #     ("paper", "rev_writes", "author"),
-    #     ("author", "writes", "paper"),
-    # ]
+    # node_types = meta['node_types']
+    # edge_types = [tuple(e) for e in meta['edge_types']]
+    node_types = ["paper", "author"]
+    edge_types = [
+        ("paper", "cites", "paper"),
+        ("paper", "rev_writes", "author"),
+        ("author", "writes", "paper"),
+    ]
     metadata = (node_types, edge_types)
 
     model = GraphSAGE(
@@ -224,6 +225,7 @@ def run_training_proc(
             out = model(batch.x_dict, batch.edge_index_dict)
             batch_size = batch["paper"].batch_size
             out = out['paper'][:batch_size]
+            out = out.softmax(dim=1)
             target = batch["paper"].y[:batch_size]
             loss = F.cross_entropy(out, target)
             loss.backward()
