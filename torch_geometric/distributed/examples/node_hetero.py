@@ -125,7 +125,7 @@ def run_training_proc(
     rpc_worker_names = {}
     num_workers = 4
     concurrency = 10
-    batch_size = 512
+    batch_size = 1024
     num_layers = 3
     num_classes = 349
     num_neighbors = [15, 10, 5]
@@ -159,8 +159,10 @@ def run_training_proc(
 
     @torch.no_grad()
     def init_params():
-        # Initialize lazy parameters via forwarding a single batch to the model:
-        for batch in train_loader: # for-loop keeps loader RPC alive
+        # Initialize lazy parameters via forwarding a single batch to the model.
+        # For-loop keeps loader RPC alive, for big batches or multiple workers
+        # one loader may exit pre-maturely leading to RPC connection errors
+        for batch in train_loader:
             batch = batch.to(torch.device("cpu"))
             model(batch.x_dict, batch.edge_index_dict)
             del batch
