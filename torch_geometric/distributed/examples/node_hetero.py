@@ -21,37 +21,6 @@ from torch_geometric.distributed import (
 )
 from torch_geometric.nn import HeteroConv, GCNConv, SAGEConv, GATConv, Linear
 
-
-class HeteroGNN(torch.nn.Module):
-    def __init__(self, hidden_channels, out_channels, num_layers):
-        super().__init__()
-
-        self.convs = torch.nn.ModuleList()
-        for _ in range(num_layers):
-            conv = HeteroConv(
-                {
-                    ("paper", "cites", "paper"): GCNConv(-1, hidden_channels),
-                    ("author", "writes", "paper"): SAGEConv(
-                        (-1, -1), hidden_channels
-                    ),
-                    # ('paper', 'rev_writes', 'author'): SAGEConv((-1, -1), hidden_channels),
-                },
-                aggr="sum",
-            )
-            self.convs.append(conv)
-
-        self.lin = Linear(hidden_channels, out_channels)
-
-    def forward(self, x_dict, edge_index_dict):
-        for conv in self.convs:
-            x_dict = conv(x_dict, edge_index_dict)
-            x_dict = {key: x.relu() for key, x in x_dict.items()}
-        return self.lin(x_dict)
-
-
-print("\n\n\n\n\n\n")
-
-
 @torch.no_grad()
 def test(model, test_loader):
     evaluator = Evaluator(name="ogbn-mag")
@@ -236,13 +205,13 @@ def run_training_proc(
 
     model = to_hetero(model, metadata)
     # model = HeteroGNN(hidden_channels=64, out_channels=8, num_layers=3)
-
+    print(f"----------- init_params() ------------- ")
     init_params()
 
     model = DistributedDataParallel(model, find_unused_parameters=True) 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.04)
 
-    print(f"----------- 444 ------------- ")
+    print(f"----------- train() ------------- ")
     # Train and test.
     f = open("dist_sage_sup.txt", "a+")
     for epoch in range(0, epochs):
