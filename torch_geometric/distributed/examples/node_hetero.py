@@ -128,8 +128,8 @@ def run_training_proc(
     batch_size = 1024
     num_layers = 3
     num_classes = 349
-    num_neighbors = [10] * num_layers
-    async_sampling = False
+    num_neighbors = [15, 10, 5]
+    async_sampling = True
 
     # Create distributed neighbor loader for training
     train_idx = (
@@ -191,11 +191,13 @@ def run_training_proc(
     # Define model and optimizer.
     # node_types = meta['node_types']
     # edge_types = [tuple(e) for e in meta['edge_types']]
-    node_types = ["paper", "author"]
+    node_types = ["paper", "author", "field_of_study"]
     edge_types = [
         ("paper", "cites", "paper"),
         ("paper", "rev_writes", "author"),
         ("author", "writes", "paper"),
+        ('paper', 'has_topic', 'field_of_study'),
+        ('field_of_study', 'rev_has_topic', 'paper')
     ]
     metadata = (node_types, edge_types)
 
@@ -210,7 +212,7 @@ def run_training_proc(
     print(f"----------- init_params() ------------- ")
     init_params()
 
-    model = DistributedDataParallel(model, find_unused_parameters=True) 
+    model = DistributedDataParallel(model, find_unused_parameters=False) 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.04)
 
     print(f"----------- train() ------------- ")
