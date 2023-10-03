@@ -188,12 +188,14 @@ def run_training_proc(
         disjoint=False,
     )
     # Define model and optimizer.
-    node_types = ["paper", "author"]
-    edge_types = [
-        ("paper", "cites", "paper"),
-        ("paper", "rev_writes", "author"),
-        ("author", "writes", "paper"),
-    ]
+    node_types = meta['node_types']
+    edge_types = [tuple(e) for e in meta['edge_types']]
+    # node_types = ["paper", "author"]
+    # edge_types = [
+    #     ("paper", "cites", "paper"),
+    #     ("paper", "rev_writes", "author"),
+    #     ("author", "writes", "paper"),
+    # ]
     metadata = (node_types, edge_types)
 
     model = GraphSAGE(
@@ -217,7 +219,7 @@ def run_training_proc(
         model.train()
         start = time.time()
         for i, batch in enumerate(train_loader):
-            print(f"-------- x2_worker: batch={batch}, cnt={i} --------- ")
+            batch_time = time.time()
             optimizer.zero_grad()
             out = model(batch.x_dict, batch.edge_index_dict)
             batch_size = batch["paper"].batch_size
@@ -226,6 +228,7 @@ def run_training_proc(
             loss = F.cross_entropy(out, target)
             loss.backward()
             optimizer.step()
+            print(f"x2_worker: batch={batch}, cnt={i}, time={time.time() - batch_time}")
             if i == len(train_loader) - 1:
                 print(" ---- dist.barrier ----")
                 torch.distributed.barrier()
