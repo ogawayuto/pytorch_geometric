@@ -123,7 +123,7 @@ def run_training_proc(
     # Basic params
     current_device = torch.device("cpu")
     rpc_worker_names = {}
-    num_workers = 4
+    num_workers = 2
     concurrency = 10
     batch_size = 512
     num_layers = 3
@@ -190,14 +190,14 @@ def run_training_proc(
         disjoint=False,
     )
     # Define model and optimizer.
-    # node_types = meta['node_types']
-    # edge_types = [tuple(e) for e in meta['edge_types']]
-    node_types = ["paper", "author"]
-    edge_types = [
-        ("paper", "cites", "paper"),
-        ("paper", "rev_writes", "author"),
-        ("author", "writes", "paper")
-    ]
+    node_types = meta['node_types']
+    edge_types = [tuple(e) for e in meta['edge_types']]
+    # node_types = ["paper", "author"]
+    # edge_types = [
+    #     ("paper", "cites", "paper"),
+    #     ("paper", "rev_writes", "author"),
+    #     ("author", "writes", "paper")
+    # ]
     metadata = (node_types, edge_types)
 
     model = GraphSAGE(
@@ -212,7 +212,7 @@ def run_training_proc(
     init_params()
         
     model = DistributedDataParallel(model, find_unused_parameters=True) 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.04)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
     print(f"----------- train() ------------- ")
     # Train and test.
@@ -226,7 +226,7 @@ def run_training_proc(
             out = model(batch.x_dict, batch.edge_index_dict)
             batch_size = batch["paper"].batch_size
             out = out['paper'][:batch_size]
-            out = out.softmax(dim=1)
+            #out = out.softmax(dim=1)
             target = batch["paper"].y[:batch_size]
             loss = F.cross_entropy(out, target)
             loss.backward()
