@@ -125,24 +125,17 @@ def run_training_proc(
     # generate some fake labels if not saved during partition making
     num_classes = 2
     feature.labels = torch.randint(num_classes, graph.node_pb.size())
-
     partition_data = (feature, graph)
 
     # Define model inputs
-
     # generate input node split for each fake partition
     num_v0_nodes = node_pb["v0"].size(0)
     input_nodes = torch.arange(num_v0_nodes).split(num_v0_nodes // 2)[node_rank]
-
-    # v0_id=partition_data[0].get_global_id('v0').sort()[0]
     # 50/50 train/test split
     input_nodes = input_nodes.split(input_nodes.size(0) // 2)
     train_idx = ("v0", input_nodes[0])
-    # train_idx[1].share_memory_()
     print("train_idx:", train_idx, train_idx[1].size(0))
-
     test_idx = ("v0", input_nodes[1])
-    # test_idx[1].share_memory_()
     print("test_idx:", test_idx, test_idx[1].size(0))
 
     # Initialize graphlearn_torch distributed worker group context.
@@ -168,7 +161,7 @@ def run_training_proc(
     num_workers = 0
     concurrency = 2
     batch_size = 64
-    num_layers = 3
+    num_layers = 2
     num_neighbors = [10] * num_layers
     async_sampling = False
 
@@ -224,7 +217,7 @@ def run_training_proc(
         model.train()
         start = time.time()
         for i, batch in enumerate(train_loader):
-            print(f"-------- x2_worker: batch={batch}, cnt={i} --------- ")
+            batch_time = time.time()
             optimizer.zero_grad()
             out = model(batch.x_dict, batch.edge_index_dict)
             batch_size = batch["v0"].batch_size
@@ -233,6 +226,7 @@ def run_training_proc(
             loss = F.cross_entropy(out, target)
             loss.backward()
             optimizer.step()
+            print(f"x2_worker: batch={batch}, cnt={i}, loss={loss}, time={time.time() - batch_time}")
             if i == len(train_loader) - 1:
                 print(" ---- dist.barrier ----")
                 torch.distributed.barrier()
