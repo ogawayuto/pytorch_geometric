@@ -104,17 +104,8 @@ def run_training_proc(
     feature.node_feat_pb = node_pb
     feature.edge_feat_pb = edge_pb
     feature.meta = meta
-
-    if node_label_file is not None:
-        if isinstance(node_label_file, dict):
-            whole_node_labels = {}
-            for ntype, file in node_label_file.items():
-                whole_node_labels[ntype] = torch.load(file)
-        else:
-            whole_node_labels = torch.load(node_label_file)
-    node_labels = whole_node_labels
-    feature.labels = node_labels
-
+    feature.labels = torch.load(node_label_file)
+    
     partition_data = (feature, graph)
     print(f" ----- partition_data={partition_data[0]}  ")
 
