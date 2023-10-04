@@ -122,9 +122,9 @@ def run_training_proc(
     # Basic params
     current_device = torch.device("cpu")
     rpc_worker_names = {}
-    num_workers = 2
+    num_workers = 4
     concurrency = 10
-    batch_size = 512
+    batch_size = 1024
     num_layers = 3
     num_classes = 349
     num_neighbors = [15, 10, 5]
@@ -189,14 +189,14 @@ def run_training_proc(
         disjoint=False,
     )
     # Define model and optimizer.
-    node_types = meta['node_types']
-    edge_types = [tuple(e) for e in meta['edge_types']]
-    # node_types = ["paper", "author"]
-    # edge_types = [
-    #     ("paper", "cites", "paper"),
-    #     ("paper", "rev_writes", "author"),
-    #     ("author", "writes", "paper")
-    # ]
+    # node_types = meta['node_types']
+    # edge_types = [tuple(e) for e in meta['edge_types']]
+    node_types = ["paper", "author"]
+    edge_types = [
+        ("paper", "cites", "paper"),
+        ("paper", "rev_writes", "author"),
+        ("author", "writes", "paper")
+    ]
     metadata = (node_types, edge_types)
 
     model = GraphSAGE(
