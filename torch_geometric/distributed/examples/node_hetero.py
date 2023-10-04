@@ -29,7 +29,8 @@ def test(model, test_loader):
     y_true = []
     for i, batch in enumerate(test_loader):
         batch_size=batch["paper"].batch_size
-        x = model(batch.x_dict, batch.edge_index_dict)[:batch_size]
+        x = model(batch.x_dict, batch.edge_index_dict)
+        x = x['paper'][:batch_size]
         xs.append(x.cpu())
         y_true.append(batch["paper"].y[:batch_size].cpu())
         print(f"---- test():  i={i}, batch={batch} ----")
@@ -233,7 +234,6 @@ def run_training_proc(
             if i == len(train_loader) - 1:
                 print(" ---- dist.barrier ----")
                 torch.distributed.barrier()
-
         end = time.time()
         f.write(
             f"-- [Trainer {current_ctx.rank}] Epoch: {epoch:03d}, Loss: {loss:.4f}, Epoch Time: {end - start}\n"
@@ -241,12 +241,9 @@ def run_training_proc(
         print(
             f"-- [Trainer {current_ctx.rank}] Epoch: {epoch:03d}, Loss: {loss:.4f}, Epoch Time: {end - start}\n"
         )
-        print("\n\n\n\n\n\n")
-        print("************************************************************")
-        print("\n\n\n\n\n\n")
-
         # Test accuracy.
         if epoch % 5 == 0:
+            print(f"----------- test() ------------- ")
             test_acc = test(model, test_loader)
             f.write(
                 f"-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n"
@@ -254,12 +251,6 @@ def run_training_proc(
             print(
                 f"-- [Trainer {current_ctx.rank}] Test Accuracy: {test_acc:.4f}\n"
             )
-
-            print("\n\n\n\n\n\n")
-            print(
-                "********************************************************************************************** "
-            )
-            print("\n\n\n\n\n\n")
             torch.distributed.barrier()
 
     print(f"----------- 555 ------------- ")
