@@ -6,11 +6,13 @@ import torch
 import torch.multiprocessing as mp
 from torch import Tensor
 
+from typing import Any
+
 from torch_geometric.distributed import LocalFeatureStore, LocalGraphStore
 from torch_geometric.distributed.dist_context import DistContext, DistRole
 from torch_geometric.distributed.event_loop import (
     ConcurrentEventLoop,
-    wrap_torch_future,
+    to_asyncio_future,
 )
 from torch_geometric.distributed.rpc import (
     RPCCallBase,
@@ -35,7 +37,6 @@ from torch_geometric.sampler import (
 from torch_geometric.sampler.base import NumNeighbors, SubgraphType
 from torch_geometric.sampler.utils import remap_keys
 from torch_geometric.typing import (
-    Any,
     Dict,
     EdgeType,
     List,
@@ -572,7 +573,7 @@ class DistNeighborSampler:
 
         if not local_only:
             # Src nodes are remote
-            res_fut_list = await wrap_torch_future(
+            res_fut_list = await to_asyncio_future(
                 torch.futures.collect_all(futs))
             for i, res_fut in enumerate(res_fut_list):
                 p_id = (self.dist_graph.partition_idx + i +
@@ -613,7 +614,7 @@ class DistNeighborSampler:
                             index=output.node[ntype],
                             input_type=ntype,
                         )
-                        nfeat = await wrap_torch_future(fut)
+                        nfeat = await to_asyncio_future(fut)
                         nfeat = nfeat.to(torch.device("cpu"))
                         nfeats[ntype] = nfeat
                     else:
@@ -627,7 +628,7 @@ class DistNeighborSampler:
                             index=output.edge[etype],
                             input_type=etype,
                         )
-                        efeat = await wrap_torch_future(fut)
+                        efeat = await to_asyncio_future(fut)
                         efeat = efeat.to(torch.device("cpu"))
                         efeats[etype] = efeat
                     else:
@@ -641,7 +642,7 @@ class DistNeighborSampler:
             if output.node is not None:
                 fut = self.dist_feature.lookup_features(
                     is_node_feat=True, index=output.node)
-                nfeats = await wrap_torch_future(fut)
+                nfeats = await to_asyncio_future(fut)
                 nfeats = nfeats.to(torch.device("cpu"))
             # else:
             efeats = None
@@ -649,7 +650,7 @@ class DistNeighborSampler:
             if output.edge is not None and self.with_edge_attr:
                 fut = self.dist_feature.lookup_features(
                     is_node_feat=False, index=output.edge)
-                efeats = await wrap_torch_future(fut)
+                efeats = await to_asyncio_future(fut)
                 efeats = efeats.to(torch.device("cpu"))
             else:
                 efeats = None
