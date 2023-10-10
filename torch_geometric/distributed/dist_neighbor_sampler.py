@@ -85,9 +85,9 @@ class DistNeighborSampler:
         self.rpc_worker_names = rpc_worker_names
 
         self.feature_store, self.graph_store = data
-        assert isinstance(self.dist_graph, LocalGraphStore)
-        assert isinstance(self.dist_feature_store, LocalFeatureStore)
-        self.is_hetero = self.dist_graph.meta['is_hetero']
+        assert isinstance(self.graph_store, LocalGraphStore)
+        assert isinstance(self.feature_store, LocalFeatureStore)
+        self.is_hetero = self.graph_store.meta['is_hetero']
 
         self.num_neighbors = num_neighbors
         self.channel = channel or mp.Queue()
@@ -98,21 +98,21 @@ class DistNeighborSampler:
         self.disjoint = disjoint
         self.temporal_strategy = temporal_strategy
         self.time_attr = time_attr
-        self.with_edge_attr = self.dist_feature.has_edge_attr()
-        _, _, self.edge_permutation = self.dist_graph.csc()
+        self.with_edge_attr = self.feature_store.has_edge_attr()
+        _, _, self.edge_permutation = self.graph_store.csc()
         self.csc = True
 
     def register_sampler_rpc(self) -> None:
         partition2workers = rpc_partition_to_workers(
             current_ctx=self.current_ctx,
-            num_partitions=self.dist_graph.num_partitions,
-            current_partition_idx=self.dist_graph.partition_idx,
+            num_partitions=self.graph_store.num_partitions,
+            current_partition_idx=self.graph_store.partition_idx,
         )
         self.rpc_router = RPCRouter(partition2workers)
-        self.dist_feature.set_rpc_router(self.rpc_router)
+        self.feature_store.set_rpc_router(self.rpc_router)
 
         self._sampler = NeighborSampler(
-            data=(self.dist_feature_store, self.dist_graph_store),
+            data=(self.feature_store, self.graph_store),
             num_neighbors=self.num_neighbors,
             subgraph_type=self.subgraph_type,
             replace=self.replace,
@@ -482,7 +482,7 @@ class DistNeighborSampler:
         partition_ids = partition_ids.tolist()
         partition_orders = partition_orders.tolist()
 
-        partitions_num = self.dist_graph.meta["num_parts"]
+        partitions_num = self.graph_store.meta["num_parts"]
 
         out = torch.ops.pyg.merge_sampler_outputs(
             sampled_nodes_with_dupl,
@@ -526,19 +526,19 @@ class DistNeighborSampler:
 
         Returns merged samplers outputs from local / remote machines.
         """
-        partition_ids = self.dist_graph.get_partition_ids_from_nids(srcs)
+        partition_ids = self.graph_store.get_partition_ids_from_nids(srcs)
         partition_orders = torch.zeros(len(partition_ids), dtype=torch.long)
 
         p_outputs: List[SamplerOutput] = [None
-                                          ] * self.dist_graph.meta["num_parts"]
+                                          ] * self.graph_store.meta["num_parts"]
         futs: List[torch.futures.Future] = []
 
         local_only = True
         single_partition = len(set(partition_ids.tolist())) == 1
 
-        for i in range(self.dist_graph.num_partitions):
-            p_id = (self.dist_graph.partition_idx +
-                    i) % self.dist_graph.num_partitions
+        for i in range(self.graph_store.num_partitions):
+            p_id = (self.graph_store.partition_idx +
+                    i) % self.graph_store.num_partitions
             p_mask = partition_ids == p_id
             p_srcs = torch.masked_select(srcs, p_mask)
             p_seed_time = (torch.masked_select(seed_time, p_mask)
@@ -548,7 +548,7 @@ class DistNeighborSampler:
             partition_orders[p_mask] = p_indices
 
             if p_srcs.shape[0] > 0:
-                if p_id == self.dist_graph.partition_idx:
+                if p_id == self.graph_store.partition_idx:
                     # sample on local machine
                     p_nbr_out = self._sampler._sample_one_hop(
                         p_srcs, one_hop_num, p_seed_time, self.csc, etype)
@@ -576,8 +576,8 @@ class DistNeighborSampler:
             res_fut_list = await to_asyncio_future(
                 torch.futures.collect_all(futs))
             for i, res_fut in enumerate(res_fut_list):
-                p_id = (self.dist_graph.partition_idx + i +
-                        1) % self.dist_graph.num_partitions
+                p_id = (self.graph_store.partition_idx + i +
+                        1) % self.graph_store.num_partitions
                 p_outputs.pop(p_id)
                 p_outputs.insert(p_id, res_fut.wait())
 
@@ -600,7 +600,7 @@ class DistNeighborSampler:
             nfeats = {}
             efeats = {}
             # Collect node labels of input node type.
-            node_labels = self.dist_feature.labels
+            node_labels = self.feature_store.labels
             if node_labels is not None:
                 nlabels = node_labels[output.node[self.input_type]]
             else:
@@ -609,7 +609,7 @@ class DistNeighborSampler:
             if output.node is not None:
                 for ntype in output.node.keys():
                     if output.node[ntype].numel() > 0:
-                        fut = self.dist_feature.lookup_features(
+                        fut = self.feature_store.lookup_features(
                             is_node_feat=True,
                             index=output.node[ntype],
                             input_type=ntype,
@@ -623,7 +623,7 @@ class DistNeighborSampler:
             if output.edge is not None and self.with_edge_attr:
                 for etype in output.edge.keys():
                     if output.edge[etype].numel() > 0:
-                        fut = self.dist_feature.lookup_features(
+                        fut = self.feature_store.lookup_features(
                             is_node_feat=False,
                             index=output.edge[etype],
                             input_type=etype,
@@ -636,11 +636,11 @@ class DistNeighborSampler:
 
         else:  # Homo
             # Collect node labels.
-            nlabels = (self.dist_feature.labels[output.node] if
-                       (self.dist_feature.labels is not None) else None)
+            nlabels = (self.feature_store.labels[output.node] if
+                       (self.feature_store.labels is not None) else None)
             # Collect node features.
             if output.node is not None:
-                fut = self.dist_feature.lookup_features(
+                fut = self.feature_store.lookup_features(
                     is_node_feat=True, index=output.node)
                 nfeats = await to_asyncio_future(fut)
                 nfeats = nfeats.to(torch.device("cpu"))
@@ -648,7 +648,7 @@ class DistNeighborSampler:
             efeats = None
             # Collect edge features.
             if output.edge is not None and self.with_edge_attr:
-                fut = self.dist_feature.lookup_features(
+                fut = self.feature_store.lookup_features(
                     is_node_feat=False, index=output.edge)
                 efeats = await to_asyncio_future(fut)
                 efeats = efeats.to(torch.device("cpu"))

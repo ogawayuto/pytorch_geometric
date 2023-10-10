@@ -22,10 +22,10 @@ class RPCCallFeatureLookup(RPCCallBase):
     r"""A wrapper for RPC calls to the feature store."""
     def __init__(self, dist_feature: FeatureStore):
         super().__init__()
-        self.dist_feature = dist_feature
+        self.feature_store = dist_feature
 
     def rpc_async(self, *args, **kwargs):
-        return self.dist_feature.rpc_local_feature_get(*args, **kwargs)
+        return self.feature_store.rpc_local_feature_get(*args, **kwargs)
 
     def rpc_sync(self, *args, **kwargs):
         raise NotImplementedError
