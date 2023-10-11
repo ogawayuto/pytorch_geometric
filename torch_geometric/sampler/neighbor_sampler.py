@@ -223,7 +223,7 @@ class NeighborSampler(BaseSampler):
             return True
 
         # self.data_type == DataType.remote
-        return self.node_types != [None]
+        return self.edge_types != [None]
 
     @property
     def is_temporal(self) -> bool:

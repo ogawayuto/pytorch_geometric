@@ -1,12 +1,11 @@
 import itertools
 import logging
+from typing import Any
 
 import numpy as np
 import torch
 import torch.multiprocessing as mp
 from torch import Tensor
-
-from typing import Any
 
 from torch_geometric.distributed import LocalFeatureStore, LocalGraphStore
 from torch_geometric.distributed.dist_context import DistContext, DistRole
@@ -529,8 +528,9 @@ class DistNeighborSampler:
         partition_ids = self.graph_store.get_partition_ids_from_nids(srcs)
         partition_orders = torch.zeros(len(partition_ids), dtype=torch.long)
 
-        p_outputs: List[SamplerOutput] = [None
-                                          ] * self.graph_store.meta["num_parts"]
+        p_outputs: List[SamplerOutput] = [
+            None
+        ] * self.graph_store.meta["num_parts"]
         futs: List[torch.futures.Future] = []
 
         local_only = True
