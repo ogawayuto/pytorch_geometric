@@ -470,14 +470,14 @@ class NeighborSampler(BaseSampler):
         node, edge, cumsum_neighbors_per_node = out
 
         if self.disjoint:
-            batch, node = node.t().contiguous()
+            _, node = node.t().contiguous()
 
         return SamplerOutput(
             node=node,
             row=None,
             col=None,
             edge=edge,
-            batch=batch,
+            batch=None,
             metadata=(cumsum_neighbors_per_node, ),
         )
 
