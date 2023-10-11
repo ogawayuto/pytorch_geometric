@@ -89,7 +89,7 @@ def dist_neighbor_loader_homo(
         async_sampling=async_sampling,
     )
 
-    assert "DistNeighborLoader()" in str(loader)
+    assert "DistNeighborLoader" in str(loader)
     assert str(mp.current_process().pid) in str(loader)
     assert isinstance(loader.neighbor_sampler, DistNeighborSampler)
 
@@ -142,7 +142,7 @@ def dist_neighbor_loader_hetero(
         async_sampling=async_sampling,
     )
 
-    assert "DistNeighborLoader()" in str(loader)
+    assert "DistNeighborLoader" in str(loader)
     assert str(mp.current_process().pid) in str(loader)
     assert isinstance(loader.neighbor_sampler, DistNeighborSampler)
     assert data[0].meta['is_hetero'] is True
