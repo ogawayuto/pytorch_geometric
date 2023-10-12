@@ -1,6 +1,6 @@
 import itertools
 import logging
-from typing import Any
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -35,15 +35,7 @@ from torch_geometric.sampler import (
 )
 from torch_geometric.sampler.base import NumNeighbors, SubgraphType
 from torch_geometric.sampler.utils import remap_keys
-from torch_geometric.typing import (
-    Dict,
-    EdgeType,
-    List,
-    NodeType,
-    Optional,
-    Tuple,
-    Union,
-)
+from torch_geometric.typing import EdgeType, NodeType
 
 NumNeighborsType = Union[NumNeighbors, List[int], Dict[EdgeType, List[int]]]
 
@@ -121,6 +113,11 @@ class DistNeighborSampler:
             temporal_strategy=self.temporal_strategy,
             time_attr=self.time_attr,
         )
+
+        self.num_hops = self._sampler.num_neighbors.num_hops
+        self.node_types = self._sampler.node_types
+        self.edge_types = self._sampler.edge_types
+
         rpc_sample_callee = RPCSamplingCallee(self._sampler)
         self.rpc_sample_callee_id = rpc_register(rpc_sample_callee)
 
@@ -213,21 +210,18 @@ class DistNeighborSampler:
             if input_type is None:
                 raise ValueError("Input type should be defined")
 
-            node_dict = NodeDict()
-            batch_dict = BatchDict(self.disjoint)
-            edge_dict: Dict[EdgeType, Tensor] = {}
-            num_sampled_nodes_dict: Dict[NodeType, List[int]] = {}
-            sampled_nbrs_per_node_dict: Dict[EdgeType, List[int]] = {}
-            num_sampled_edges_dict: Dict[EdgeType, List[int]] = {}
-
-            for ntype in self._sampler.node_types:
-                num_sampled_nodes_dict.update({ntype: [0]})
-
-            for edge_type in self._sampler.edge_types:
-                edge_dict.update(
-                    {edge_type: torch.empty(0, dtype=torch.int64)})
-                num_sampled_edges_dict.update({edge_type: []})
-                sampled_nbrs_per_node_dict.update({edge_type: []})
+            node_dict = NodeDict(self.node_types)
+            batch_dict = BatchDict(self.node_types)
+            edge_dict: Dict[EdgeType,
+                            Tensor] = Dict.fromkeys(self.edge_types,
+                                                    torch.empty(0))
+            num_sampled_nodes_dict: Dict[NodeType, List[int]] = Dict.fromkeys(
+                self.node_types, [0])
+            sampled_nbrs_per_node_dict: Dict[EdgeType,
+                                             List[int]] = Dict.fromkeys(
+                                                 self.edge_types, [])
+            num_sampled_edges_dict: Dict[EdgeType, List[int]] = Dict.fromkeys(
+                self.edge_types, [])
 
             if isinstance(inputs, EdgeSamplerInput):
                 node_dict.src = seed_dict
@@ -259,7 +253,7 @@ class DistNeighborSampler:
                     batch_dict.out[input_type] = src_batch
 
             # loop over the layers
-            for i in range(self._sampler.num_hops):
+            for i in range(self.num_hops):
                 # create tasks
                 task_dict = {}
                 for edge_type in self._sampler.edge_types:
@@ -322,7 +316,7 @@ class DistNeighborSampler:
                                                     self._sampler.to_rel_type)
 
             row_dict, col_dict = torch.ops.pyg.hetero_relabel_neighborhood(
-                self._sampler.node_types,
+                self.node_types,
                 self._sampler.edge_types,
                 seed_dict,
                 node_dict.with_dupl,
@@ -333,15 +327,15 @@ class DistNeighborSampler:
                 self.disjoint,
             )
 
-            node_dict.out = {
-                ntype: torch.from_numpy(node_dict.out[ntype])
-                for ntype in self._sampler.node_types
-            }
-            if self.disjoint:
-                batch_dict.out = {
-                    ntype: torch.from_numpy(batch_dict.out[ntype])
-                    for ntype in self._sampler.node_types
-                }
+            # node_dict.out = {
+            #     ntype: torch.from_numpy(node_dict.out[ntype])
+            #     for ntype in self._sampler.node_types
+            # }
+            # if self.disjoint:
+            #     batch_dict.out = {
+            #         ntype: torch.from_numpy(batch_dict.out[ntype])
+            #         for ntype in self._sampler.node_types
+            #     }
 
             sampler_output = HeteroSamplerOutput(
                 node=node_dict.out,

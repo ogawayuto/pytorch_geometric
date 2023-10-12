@@ -1,12 +1,10 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 import torch
 from torch import Tensor
 
-from torch_geometric.data import HeteroData
-from torch_geometric.distributed import LocalFeatureStore, LocalGraphStore
 from torch_geometric.sampler import SamplerOutput
 from torch_geometric.typing import EdgeType, NodeType
 
@@ -18,9 +16,14 @@ class NodeDict:
     2) The nodes with duplicates that are further needed to create COO output
     3) The output nodes without duplicates
     """
-    src: Dict[NodeType, Tensor] = field(default_factory=dict)
-    with_dupl: Dict[NodeType, Tensor] = field(default_factory=dict)
-    out: Dict[NodeType, Tensor] = field(default_factory=dict)
+    def __init__(self, node_types):
+        self.src: Dict[NodeType,
+                       Tensor] = Dict.fromkeys(node_types, torch.empty(0))
+        self.with_dupl: Dict[NodeType,
+                             Tensor] = Dict.fromkeys(node_types,
+                                                     torch.empty(0))
+        self.out: Dict[NodeType,
+                       Tensor] = Dict.fromkeys(node_types, torch.empty(0))
 
 
 @dataclass
@@ -32,9 +35,11 @@ class BatchDict:
        output
     3) The output subgraph IDs without duplicates
     """
-    src: Dict[NodeType, Tensor] = field(default_factory=dict)
-    with_duple: Dict[NodeType, Tensor] = field(default_factory=dict)
-    out: Dict[NodeType, Tensor] = field(default_factory=dict)
+    def __init__(self, node_types):
+        self.src: Dict[NodeType, Tensor] = Dict.fromkeys(node_types, None)
+        self.with_dupl: Dict[NodeType,
+                             Tensor] = Dict.fromkeys(node_types, None)
+        self.out: Dict[NodeType, Tensor] = Dict.fromkeys(node_types, None)
 
 
 def remove_duplicates(

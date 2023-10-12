@@ -1,21 +1,19 @@
-from torch_geometric.distributed.dist_context import DistContext
-from torch_geometric.distributed.partition import load_partition_info
-
 import argparse
 import time
 
 import torch
 import torch.distributed
 import torch.nn.functional as F
-
 from torch.nn.parallel import DistributedDataParallel
 
 from torch_geometric.distributed import (
+    DistNeighborLoader,
     LocalFeatureStore,
     LocalGraphStore,
-    DistNeighborLoader,
 )
-from torch_geometric.nn import HeteroConv, SAGEConv, Linear
+from torch_geometric.distributed.dist_context import DistContext
+from torch_geometric.distributed.partition import load_partition_info
+from torch_geometric.nn import HeteroConv, Linear, SAGEConv
 
 
 class HeteroGNN(torch.nn.Module):
@@ -26,11 +24,12 @@ class HeteroGNN(torch.nn.Module):
         for _ in range(num_layers):
             conv = HeteroConv(
                 {
-                    ("v0", "e0", "v0"): SAGEConv(-1, hidden_channels),
-                    ("v0", "e0", "v1"): SAGEConv((-1, -1), hidden_channels),
-                    ("v1", "e0", "v0"): SAGEConv(
-                        (-1, -1), hidden_channels, add_self_loops=False
-                    ),
+                    ("v0", "e0", "v0"):
+                    SAGEConv(-1, hidden_channels),
+                    ("v0", "e0", "v1"):
+                    SAGEConv((-1, -1), hidden_channels),
+                    ("v1", "e0", "v0"):
+                    SAGEConv((-1, -1), hidden_channels, add_self_loops=False),
                 },
                 aggr="sum",
             )
@@ -130,7 +129,8 @@ def run_training_proc(
     # Define model inputs
     # generate input node split for each fake partition
     num_v0_nodes = node_pb["v0"].size(0)
-    input_nodes = torch.arange(num_v0_nodes).split(num_v0_nodes // 2)[node_rank]
+    input_nodes = torch.arange(num_v0_nodes).split(num_v0_nodes //
+                                                   2)[node_rank]
     # 50/50 train/test split
     input_nodes = input_nodes.split(input_nodes.size(0) // 2)
     train_idx = ("v0", input_nodes[0])
@@ -201,9 +201,8 @@ def run_training_proc(
         disjoint=False,
     )
 
-    model = HeteroGNN(
-        hidden_channels=64, out_channels=num_classes, num_layers=num_layers
-    )
+    model = HeteroGNN(hidden_channels=64, out_channels=num_classes,
+                      num_layers=num_layers)
 
     init_params()
 
@@ -226,7 +225,9 @@ def run_training_proc(
             loss = F.cross_entropy(out, target)
             loss.backward()
             optimizer.step()
-            print(f"x2_worker: batch={batch}, cnt={i}, loss={loss}, time={time.time() - batch_time}")
+            print(
+                f"x2_worker: batch={batch}, cnt={i}, loss={loss}, time={time.time() - batch_time}"
+            )
             if i == len(train_loader) - 1:
                 print(" ---- dist.barrier ----")
                 torch.distributed.barrier()
@@ -258,8 +259,7 @@ def run_training_proc(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Arguments for distributed training of supervised SAGE."
-    )
+        description="Arguments for distributed training of supervised SAGE.")
     parser.add_argument(
         "--dataset",
         type=str,
@@ -330,19 +330,22 @@ if __name__ == "__main__":
         "--training_pg_master_port",
         type=int,
         default=11111,
-        help="The port used for PyTorch's process group initialization across training processes.",
+        help=
+        "The port used for PyTorch's process group initialization across training processes.",
     )
     parser.add_argument(
         "--train_loader_master_port",
         type=int,
         default=11112,
-        help="The port used for RPC initialization across all sampling workers of training loader.",
+        help=
+        "The port used for RPC initialization across all sampling workers of training loader.",
     )
     parser.add_argument(
         "--test_loader_master_port",
         type=int,
         default=11113,
-        help="The port used for RPC initialization across all sampling workers of testing loader.",
+        help=
+        "The port used for RPC initialization across all sampling workers of testing loader.",
     )
     args = parser.parse_args()
 
@@ -362,7 +365,8 @@ if __name__ == "__main__":
     f.write(
         f"* training process group master port: {args.training_pg_master_port}\n"
     )
-    f.write(f"* training loader master port: {args.train_loader_master_port}\n")
+    f.write(
+        f"* training loader master port: {args.train_loader_master_port}\n")
     f.write(f"* testing loader master port: {args.test_loader_master_port}\n")
 
     f.write("--- Loading data partition ...\n")

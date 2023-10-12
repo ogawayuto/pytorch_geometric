@@ -119,7 +119,9 @@ class NeighborSampler(BaseSampler):
 
             # Obtain graph metadata:
             node_attrs = feature_store.get_all_tensor_attrs()
-            self.node_types = list(set(attr.group_name for attr in node_attrs))
+            self.node_types = list(
+                set(attr.group_name for attr in node_attrs
+                    if type(attr.group_name) == NodeType))
 
             edge_attrs = graph_store.get_all_edge_attrs()
             self.edge_types = list(set(attr.edge_type for attr in edge_attrs))
@@ -441,8 +443,6 @@ class NeighborSampler(BaseSampler):
         r"""Implements one-hop neighbor sampling for a set of input nodes for a
         specific edge type.
         """
-        rel_type = '__'.join(edge_type) if self.is_hetero else None
-
         if not self.is_hetero:
             colptr = self.colptr
             row = self.row
@@ -451,7 +451,8 @@ class NeighborSampler(BaseSampler):
             rel_type = '__'.join(edge_type)
             colptr = self.colptr_dict[rel_type]
             row = self.row_dict[rel_type]
-            node_time = self.node_time.get(edge_type[2], None)
+            node_time = self.node_time.get(edge_type[2],
+                                           None) if self.node_time else None
 
         out = torch.ops.pyg.dist_neighbor_sample(
             colptr,
