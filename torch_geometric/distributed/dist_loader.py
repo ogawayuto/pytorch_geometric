@@ -71,7 +71,7 @@ class DistLoader:
         self.rpc_worker_names = rpc_worker_names
         self.master_addr = master_addr
         self.master_port = master_port
-        self.channel = channel or mp.Queue()
+        self.channel = channel
         self.pid = mp.current_process().pid
         self.num_rpc_threads = num_rpc_threads
         self.rpc_timeout = rpc_timeout

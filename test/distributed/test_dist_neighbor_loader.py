@@ -93,7 +93,6 @@ def dist_neighbor_loader_homo(
     assert str(mp.current_process().pid) in str(loader)
     assert isinstance(loader.neighbor_sampler, DistNeighborSampler)
 
-    i = 0
     for batch in loader:
         assert isinstance(batch, Data)
         assert batch.x.device == device
@@ -105,9 +104,6 @@ def dist_neighbor_loader_homo(
         assert batch.edge_index.max() < batch.num_nodes
         assert batch.edge_attr.device == device
         assert batch.edge_attr.size(0) == batch.edge_index.size(1)
-        i = i + 1
-        print(i)
-    print("end")
 
 
 def dist_neighbor_loader_hetero(
@@ -174,11 +170,6 @@ def dist_neighbor_loader_hetero(
 @pytest.mark.parametrize("num_workers", [0, 2])
 @pytest.mark.parametrize("async_sampling", [True, False])
 def test_dist_neighbor_loader_homo(tmp_path, num_workers, async_sampling):
-    print("num_workers:")
-    print(num_workers)
-    print("async_sampling:")
-    print(async_sampling)
-
     mp_context = torch.multiprocessing.get_context("spawn")
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.bind(("127.0.0.1", 0))

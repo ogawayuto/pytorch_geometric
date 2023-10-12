@@ -90,7 +90,7 @@ class DistNeighborSampler:
         self.is_hetero = self.graph_store.meta['is_hetero']
 
         self.num_neighbors = num_neighbors
-        self.channel = channel or mp.Queue()
+        self.channel = channel
         self.concurrency = concurrency
         self.device = device
         self.event_loop = None
@@ -666,7 +666,7 @@ class DistNeighborSampler:
         return output
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}()-PID{mp.current_process().pid}"
+        return f'{self.__class__.__name__}(pid={self.pid})'
 
 
 # Sampling Utilities ##########################################################
