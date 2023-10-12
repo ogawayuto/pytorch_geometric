@@ -4,12 +4,12 @@ import torch
 from torch import Tensor
 
 from torch_geometric.data import Data, FeatureStore, GraphStore, HeteroData
-from torch_geometric.distributed.utils import filter_dist_store
 from torch_geometric.loader.base import DataLoaderIterator
 from torch_geometric.loader.mixin import AffinityMixin
 from torch_geometric.loader.utils import (
     filter_custom_store,
     filter_data,
+    filter_dist_store,
     filter_hetero_data,
     get_input_nodes,
     infer_filter_per_worker,
