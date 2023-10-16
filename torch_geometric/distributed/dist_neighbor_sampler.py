@@ -61,7 +61,7 @@ class DistNeighborSampler:
         self,
         current_ctx: DistContext,
         rpc_worker_names: Dict[DistRole, List[str]],
-        data: Tuple[LocalGraphStore, LocalFeatureStore],
+        data: Tuple[LocalFeatureStore, LocalGraphStore],
         num_neighbors: NumNeighborsType,
         channel: Optional[mp.Queue] = None,
         replace: bool = False,
@@ -92,7 +92,6 @@ class DistNeighborSampler:
         self.temporal_strategy = temporal_strategy
         self.time_attr = time_attr
         self.with_edge_attr = self.feature_store.has_edge_attr()
-        _, _, self.edge_permutation = self.graph_store.csc()
         self.csc = True
 
     def register_sampler_rpc(self) -> None:
@@ -173,7 +172,7 @@ class DistNeighborSampler:
 
         input_type = inputs.input_type
         self.input_type = input_type
-        batch_size = inputs.input_id.size()[0]
+        batch_size = inputs.node.size()[0]
 
         seed_dict = None
         seed_time_dict = None
@@ -327,16 +326,6 @@ class DistNeighborSampler:
                 self.disjoint,
             )
 
-            # node_dict.out = {
-            #     ntype: torch.from_numpy(node_dict.out[ntype])
-            #     for ntype in self._sampler.node_types
-            # }
-            # if self.disjoint:
-            #     batch_dict.out = {
-            #         ntype: torch.from_numpy(batch_dict.out[ntype])
-            #         for ntype in self._sampler.node_types
-            #     }
-
             sampler_output = HeteroSamplerOutput(
                 node=node_dict.out,
                 row=remap_keys(row_dict, self._sampler.to_edge_type),
@@ -358,7 +347,7 @@ class DistNeighborSampler:
 
             sampled_nbrs_per_node = []
             num_sampled_nodes = [seed.numel()]
-            num_sampled_edges = [0]
+            num_sampled_edges = []
 
             # loop over the layers
             for one_hop_num in self.num_neighbors:
@@ -660,7 +649,7 @@ class DistNeighborSampler:
         return output
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(pid={self.pid})'
+        return f'{self.__class__.__name__}(pid={mp.current_process().pid})'
 
 
 # Sampling Utilities ##########################################################
