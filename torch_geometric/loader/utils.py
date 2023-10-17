@@ -193,6 +193,7 @@ def filter_dist_store(feature_store: FeatureStore, graph_store: GraphStore,
     nfeats = meta[-3]
     nlabels = meta[-2]
     efeats = meta[-1]
+    
     # Filter edge storage:
     required_edge_attrs = []
     for attr in graph_store.get_all_edge_attrs():

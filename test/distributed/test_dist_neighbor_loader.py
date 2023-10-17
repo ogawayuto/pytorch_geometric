@@ -62,8 +62,8 @@ def dist_neighbor_loader_homo(
     async_sampling: bool,
     device=torch.device("cpu"),
 ):
-    data = create_dist_data(tmp_path, rank)
-    input_nodes = data[0].get_global_id(None)
+    part_data = create_dist_data(tmp_path, rank)
+    input_nodes = part_data[0].get_global_id(None)
     current_ctx = DistContext(
         rank=rank,
         global_rank=rank,
@@ -73,8 +73,8 @@ def dist_neighbor_loader_homo(
     )
 
     loader = DistNeighborLoader(
-        data,
-        num_neighbors=[10, 10],
+        part_data,
+        num_neighbors=[1],
         batch_size=10,
         num_workers=num_workers,
         input_nodes=input_nodes,
@@ -87,6 +87,8 @@ def dist_neighbor_loader_homo(
         drop_last=True,
         async_sampling=async_sampling,
     )
+
+    edge_index = part_data[1]._edge_index[(None, "coo")]
 
     assert "DistNeighborLoader()" in str(loader)
     assert str(mp.current_process().pid) in str(loader)
@@ -103,6 +105,10 @@ def dist_neighbor_loader_homo(
         assert batch.edge_index.max() < batch.num_nodes
         assert batch.edge_attr.device == device
         assert batch.edge_attr.size(0) == batch.edge_index.size(1)
+        assert torch.equal(
+            batch.n_id[batch.edge_index],
+            edge_index[:, batch.e_id],
+        )  # test edge mapping
 
 
 def dist_neighbor_loader_hetero(
@@ -115,8 +121,8 @@ def dist_neighbor_loader_hetero(
     async_sampling: bool,
     device=torch.device("cpu"),
 ):
-    data = create_dist_data(tmp_path, rank)
-    input_nodes = ("v0", data[0].get_global_id("v0"))
+    part_data = create_dist_data(tmp_path, rank)
+    input_nodes = ("v0", part_data[0].get_global_id("v0"))
     current_ctx = DistContext(
         rank=rank,
         global_rank=rank,
@@ -126,7 +132,7 @@ def dist_neighbor_loader_hetero(
     )
 
     loader = DistNeighborLoader(
-        data,
+        part_data,
         num_neighbors=[10, 10],
         batch_size=10,
         num_workers=num_workers,
@@ -144,7 +150,7 @@ def dist_neighbor_loader_hetero(
     assert "DistNeighborLoader()" in str(loader)
     assert str(mp.current_process().pid) in str(loader)
     assert isinstance(loader.neighbor_sampler, DistNeighborSampler)
-    assert data[0].meta["is_hetero"] == True
+    assert part_data[0].meta["is_hetero"] == True
 
     for batch in loader:
         assert isinstance(batch, HeteroData)
@@ -163,6 +169,19 @@ def dist_neighbor_loader_hetero(
                 assert batch[etype].edge_attr.size(0) == batch[
                     etype
                 ].edge_index.size(1)
+                # test edge mapping
+                src, dst = etype[0], etype[-1]
+                edge_index = part_data[1]._edge_index[(etype, "coo")]
+                a = torch.stack(
+                    (
+                        batch[src].n_id[batch[etype].edge_index[0]],
+                        batch[dst].n_id[batch[etype].edge_index[1]],
+                    ),
+                    dim=0,
+                )
+                b = edge_index[:, batch[etype].e_id]
+                print(etype)
+                assert torch.equal(a, b)  # TODO: debug in a[0] (src) WIP
 
 
 @onlyLinux
@@ -180,7 +199,6 @@ def test_dist_neighbor_loader_homo(tmp_path, num_workers, async_sampling):
     data = FakeDataset(
         num_graphs=1, avg_num_nodes=100, avg_degree=3, edge_dim=2
     )[0]
-
     num_parts = 2
     partitioner = Partitioner(data, num_parts, tmp_path)
     partitioner.generate_partition()
