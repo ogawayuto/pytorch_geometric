@@ -1,22 +1,20 @@
 import atexit
-import pytest
 import socket
+
+import pytest
 import torch
 
 from torch_geometric.data import Data
-from torch_geometric.distributed import (
-    LocalFeatureStore,
-    LocalGraphStore,
-)
+from torch_geometric.distributed import LocalFeatureStore, LocalGraphStore
 from torch_geometric.distributed.dist_context import DistContext
 from torch_geometric.distributed.dist_neighbor_sampler import (
     DistNeighborSampler,
     close_sampler,
 )
-from torch_geometric.sampler import NeighborSampler, NodeSamplerInput
-
 from torch_geometric.distributed.rpc import init_rpc
+from torch_geometric.sampler import NeighborSampler, NodeSamplerInput
 from torch_geometric.testing import withPackage
+
 
 def create_data(rank, world_size):
     # create dist data
@@ -24,16 +22,16 @@ def create_data(rank, world_size):
         # partition 0
         node_id = torch.tensor([0, 1, 2, 3, 4, 5, 6, 10])
         edge_index = torch.tensor([
-                [1, 2, 3, 4, 5, 0, 0],
-                [0, 1, 2, 3, 4, 4, 9],
-            ])
+            [1, 2, 3, 4, 5, 0, 0],
+            [0, 1, 2, 3, 4, 4, 9],
+        ])
     else:
         # partition 1
         node_id = torch.tensor([0, 4, 5, 6, 7, 8, 9, 10])
         edge_index = torch.tensor([
-                [5, 6, 7, 8, 9, 0, 5],
-                [4, 5, 6, 7, 8, 9, 9],
-            ])
+            [5, 6, 7, 8, 9, 0, 5],
+            [4, 5, 6, 7, 8, 9, 9],
+        ])
 
     feature_store = LocalFeatureStore.from_data(node_id)
     graph_store = LocalGraphStore.from_data(None, edge_index, num_nodes=11)
@@ -47,19 +45,19 @@ def create_data(rank, world_size):
 
     # create reference data
     edge_index = torch.tensor([
-            [1, 2, 3, 4, 5, 0, 0, 6, 7, 8, 9, 5],
-            [0, 1, 2, 3, 4, 4, 9, 5, 6, 7, 8, 9],
-        ])
+        [1, 2, 3, 4, 5, 0, 0, 6, 7, 8, 9, 5],
+        [0, 1, 2, 3, 4, 4, 9, 5, 6, 7, 8, 9],
+    ])
     data = Data(x=None, y=None, edge_index=edge_index, num_nodes=11)
 
     return (dist_data, data)
 
 
 def dist_neighbor_sampler_homo(
-        world_size: int,
-        rank: int,
-        master_port: int,
-        disjoint: bool = False,
+    world_size: int,
+    rank: int,
+    master_port: int,
+    disjoint: bool = False,
 ):
     dist_data, data = create_data(rank, world_size)
 
@@ -116,15 +114,12 @@ def dist_neighbor_sampler_homo(
 
     # evaluate distributed node sample function
     out_dist = dist_sampler.event_loop.run_task(
-                coro=dist_sampler.node_sample(inputs))
+        coro=dist_sampler.node_sample(inputs))
 
     torch.distributed.barrier()
 
-    sampler = NeighborSampler(
-        data=data,
-        num_neighbors=num_neighbors,
-        disjoint=disjoint
-    )
+    sampler = NeighborSampler(data=data, num_neighbors=num_neighbors,
+                              disjoint=disjoint)
 
     # evaluate node sample function
     out = sampler._sample(input_node)

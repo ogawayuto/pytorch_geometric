@@ -121,7 +121,7 @@ class NeighborSampler(BaseSampler):
             node_attrs = feature_store.get_all_tensor_attrs()
             self.node_types = list(
                 set(attr.group_name for attr in node_attrs
-                    if type(attr.group_name) == NodeType))
+                    if isinstance(attr.group_name, NodeType)))
 
             edge_attrs = graph_store.get_all_edge_attrs()
             self.edge_types = list(set(attr.edge_type for attr in edge_attrs))
@@ -432,57 +432,6 @@ class NeighborSampler(BaseSampler):
                 num_sampled_nodes=num_sampled_nodes,
                 num_sampled_edges=num_sampled_edges,
             )
-
-    def _sample_one_hop(
-        self,
-        input_nodes: Tensor,
-        num_neighbors: int,
-        seed_time: Optional[Tensor] = None,
-        edge_type: Optional[EdgeType] = None,
-    ) -> SamplerOutput:
-        r"""Implements one-hop neighbor sampling for a set of input nodes for a
-        specific edge type.
-        """
-        if not self.is_hetero:
-            colptr = self.colptr
-            row = self.row
-            node_time = self.node_time
-        else:
-            rel_type = '__'.join(edge_type)
-            colptr = self.colptr_dict[rel_type]
-            row = self.row_dict[rel_type]
-            node_time = self.node_time.get(edge_type[2],
-                                           None) if self.node_time else None
-
-        out = torch.ops.pyg.dist_neighbor_sample(
-            colptr,
-            row,
-            input_nodes.to(colptr.dtype),
-            num_neighbors,
-            node_time,
-            seed_time,
-            None,  # TODO: edge_weight
-            True,  # csc
-            self.replace,
-            self.subgraph_type != SubgraphType.induced,
-            self.disjoint and node_time is not None,
-            self.temporal_strategy,
-        )
-        node, edge, cumsum_neighbors_per_node = out
-
-        batch = None
-        # return batch only during temporal sampling
-        if self.disjoint and node_time is not None:
-            batch, node = node.t().contiguous()
-
-        return SamplerOutput(
-            node=node,
-            row=None,
-            col=None,
-            edge=edge,
-            batch=batch,
-            metadata=(cumsum_neighbors_per_node, ),
-        )
 
 
 # Sampling Utilities ##########################################################

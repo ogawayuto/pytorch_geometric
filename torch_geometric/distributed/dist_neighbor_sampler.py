@@ -40,20 +40,6 @@ from torch_geometric.typing import EdgeType, NodeType
 NumNeighborsType = Union[NumNeighbors, List[int], Dict[EdgeType, List[int]]]
 
 
-class RPCSamplingCallee(RPCCallBase):
-    r"""A wrapper for RPC callee that will perform RPC sampling from remote
-    processes."""
-    def __init__(self, sampler: NeighborSampler):
-        super().__init__()
-        self.sampler = sampler
-
-    def rpc_async(self, *args, **kwargs) -> Any:
-        return self.sampler._sample_one_hop(*args, **kwargs)
-
-    def rpc_sync(self, *args, **kwargs) -> Any:
-        pass
-
-
 class DistNeighborSampler:
     r"""An implementation of a distributed and asynchronised neighbor sampler
     used by :class:`~torch_geometric.distributed.DistNeighborLoader`."""
@@ -116,8 +102,9 @@ class DistNeighborSampler:
         self.num_hops = self._sampler.num_neighbors.num_hops
         self.node_types = self._sampler.node_types
         self.edge_types = self._sampler.edge_types
+        self.node_time = self._sampler.node_time
 
-        rpc_sample_callee = RPCSamplingCallee(self._sampler)
+        rpc_sample_callee = RPCSamplingCallee(self)
         self.rpc_sample_callee_id = rpc_register(rpc_sample_callee)
 
     def init_event_loop(self) -> None:
@@ -537,13 +524,13 @@ class DistNeighborSampler:
 
             if p_srcs.shape[0] > 0:
                 if p_id == self.graph_store.partition_idx:
-                    # sample on local machine
-                    p_nbr_out = self._sampler._sample_one_hop(
-                        p_srcs, one_hop_num, p_seed_time, edge_type)
+                    # sample on a local machine
+                    p_nbr_out = self._sample_one_hop(p_srcs, one_hop_num,
+                                                     p_seed_time, edge_type)
                     p_outputs.pop(p_id)
                     p_outputs.insert(p_id, p_nbr_out)
                 else:
-                    # sample on remote machine
+                    # sample on a remote machine
                     local_only = False
                     to_worker = self.rpc_router.get_to_worker(p_id)
                     futs.append(
@@ -575,6 +562,57 @@ class DistNeighborSampler:
 
         return self.merge_sampler_outputs(partition_ids, partition_orders,
                                           p_outputs, one_hop_num, src_batch)
+
+    def _sample_one_hop(
+        self,
+        input_nodes: Tensor,
+        num_neighbors: int,
+        seed_time: Optional[Tensor] = None,
+        edge_type: Optional[EdgeType] = None,
+    ) -> SamplerOutput:
+        r"""Implements one-hop neighbor sampling for a set of input nodes for a
+        specific edge type.
+        """
+        if not self.is_hetero:
+            colptr = self._sampler.colptr
+            row = self._sampler.row
+            node_time = self.node_time
+        else:
+            rel_type = '__'.join(edge_type)
+            colptr = self._sampler.colptr_dict[rel_type]
+            row = self._sampler.row_dict[rel_type]
+            node_time = self.node_time.get(edge_type[2],
+                                           None) if self.node_time else None
+
+        out = torch.ops.pyg.dist_neighbor_sample(
+            colptr,
+            row,
+            input_nodes.to(colptr.dtype),
+            num_neighbors,
+            node_time,
+            seed_time,
+            None,  # TODO: edge_weight
+            True,  # csc
+            self.replace,
+            self.subgraph_type != SubgraphType.induced,
+            self.disjoint and node_time is not None,
+            self.temporal_strategy,
+        )
+        node, edge, cumsum_neighbors_per_node = out
+
+        batch = None
+        # return batch only during temporal sampling
+        if self.disjoint and node_time is not None:
+            batch, node = node.t().contiguous()
+
+        return SamplerOutput(
+            node=node,
+            row=None,
+            col=None,
+            edge=edge,
+            batch=batch,
+            metadata=(cumsum_neighbors_per_node, ),
+        )
 
     async def _collate_fn(
         self, output: Union[SamplerOutput, HeteroSamplerOutput]
@@ -653,6 +691,20 @@ class DistNeighborSampler:
 
 
 # Sampling Utilities ##########################################################
+
+
+class RPCSamplingCallee(RPCCallBase):
+    r"""A wrapper for RPC callee that will perform RPC sampling from remote
+    processes."""
+    def __init__(self, sampler: DistNeighborSampler):
+        super().__init__()
+        self.sampler = sampler
+
+    def rpc_async(self, *args, **kwargs) -> Any:
+        return self.sampler._sample_one_hop(*args, **kwargs)
+
+    def rpc_sync(self, *args, **kwargs) -> Any:
+        pass
 
 
 def close_sampler(worker_id: int, sampler: DistNeighborSampler):
